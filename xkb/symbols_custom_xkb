@@ -1,0 +1,7 @@
+// Right Shift becomes Compose (Multi_key) in every layout.
+partial alphanumeric_keys
+xkb_symbols "rshift_compose" {
+    include "us(basic)"
+    name[Group1] = "English (US) + RShift=Compose";
+    replace key <RTSH> { [ Multi_key, Multi_key ] };
+};

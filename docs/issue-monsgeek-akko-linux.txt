@@ -1,0 +1,96 @@
+# AK680 MAX (wired) falls back to M1 key matrix — wrong key names in `remap` output
+
+**Hardware:** AJAZZ / MonsGeek AK680 MAX RGB (wired USB)
+- VID/PID `3151:502D`, reported name `Gaming Keyboard`
+- Firmware `v306` (raw 0x0306), protocol `RY5088`, API ID `2255`
+- Hall-effect (HE) board, magnetic switches
+
+**Tool:** `iot_driver` @ master (`a233374`).
+
+## Problem
+
+`iot_driver remap` resolves *names* (and prints them in `Remapping NAME (index N)`)
+against the **wrong layout**. Remaps **by index work correctly**, but the names
+displayed/parsed for several keys are misleading:
+
+```
+$ iot_driver remap 86 Home
+Remapping PgUp (index 86) to Home on Layer 0 layer...
+```
+
+Physical index 86 is **Delete** (as the driver's own database says), not PgUp.
+Consequently any *name-based* remap (e.g. `remap pgup ...`) silently hits the wrong
+physical key.
+
+## Why (diagnosed in source, 2026-08-30)
+
+The CLI resolves and *prints* key names through a **static transport table**, not
+through the device matrix database:
+
+- `KeyRef::parse`/`Display` and `resolve_key` (in `monsgeek-transport/src/protocol.rs`)
+  use `matrix::KEY_NAMES` — a fixed column-major 65%-layout table baked into the
+  crate. Nobody consults the database at that point (confirmed by instrumentation:
+  `device_id=Some(2255)`, matrix DB correctly returns `86=Delete, 87=PageUp`, but the
+  printed name still comes from the static table and says `PgUp`).
+- The correct per-device names ARE loaded (`KeyboardInterface::set_matrix_key_names`
+  ← `resolve_matrix_key_names` ← `device_matrices.json` entry
+  `devices/12625:20525:2255` → `Common68_K80X68`), but the remap/parse/display path
+  never uses them.
+
+For AK680 MAX the static table disagrees with the physical board exactly at the
+right-side cluster:
+
+| static table (used by CLI) | Common68_K80X68 / physical |
+|----------------------------|-----------------------------|
+| 86: `PgUp`                 | 86: **Delete**              |
+| 87: `PgDn`                 | 87: **PageUp**              |
+| 88: `End`                  | 88: **PageDown**            |
+
+So:
+
+- `iot_driver remap 87 PageDown` is silently *wrong* in the terminal but the **index**
+  remap applies to the correct physical key (matter only for printed/parsed names).
+- `iot_driver remap pgup Esc` resolves `pgup` → static index 86 → hits the physical
+  **Delete** key instead of PageUp (87).
+
+## Empirically verified matrix (factory-reset board, `wev` + remap-by-index)
+
+| index | driver prints (static table) | physical key (wev) |
+|-------|------------------------------|--------------------|
+| 0 | Esc | nothing (remap is a silent no-op) |
+| 1 | `` ` `` | **Esc** |
+| 3 | Caps | CapsLock |
+| 85 | Home | Home |
+| 86 | PgUp | **Delete** |
+| 87 | PgDn | **PageUp** |
+| 88 | End | **PageDown** |
+
+All 67 visible keys otherwise match the standard 65% layout `Common68_K80X68`.
+
+## Suggested fix
+
+1. Use `KeyboardInterface::matrix_key_names()` (already populated from
+   `device_matrices.json`) in `KeyRef` parsing/display and in `resolve_key`, with the
+   static table only as a fallback — the data already exists, it is just not wired in.
+2. Cheaper half-fix: warn in `remap` output when the static-table name differs from
+   the device-matrix name for that index.
+3. Long-term: drop the static `KEY_NAMES` from name resolution for devices that have
+   a matrix DB entry.
+
+## Extra foot-gun noticed
+
+`iot_driver remap <N> <N>` is NOT a no-op: numeric targets are parsed as *key names*
+(`"0"`..`"9"` hit HID digits), silently rewriting the key to that digit. Only `#N`
+explicitly means "index". Suggest: reject/warn when the target equals an index
+number and require `#N`, or make `remap N N` an explicit no-op.
+
+## Repro
+
+```
+iot_driver info        # VID 3151:502D, Device API ID 2255, Device "Gaming Keyboard"
+echo y | iot_driver reset
+iot_driver remap 86 Home   # prints: Remapping PgUp (index 86) to Home
+# index 86 physically IS Delete -> names are wrong, index remap works
+```
+
+Tested on Arch Linux (Hyprland/Wayland), 2026-08-30.
