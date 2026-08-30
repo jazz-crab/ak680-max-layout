@@ -10,7 +10,7 @@
 | Угол (левая от 1) | `` ` `` / **ё** | прошивка (remap index 1 → HID 0x35) |
 | CapsLock | **Esc** | прошивка (remap index 3) |
 | Колонка (Home/Del/PgUp/PgDn) | **Del/Home/PrtSc/End** | прошивка (remap 85–88) |
-| Правый Shift | **Compose** (ёлочки «», тире —, ...) | xkb `custom(rshift_compose)` |
+| Правый Shift | **обычный Shift** (по умолчанию) | — |
 | Правый Alt | **переключение на EN** | Hyprland bind `code:108` |
 | Правый Ctrl | **переключение на RU** | Hyprland bind `code:105` |
 
@@ -24,8 +24,8 @@
 | Файл в репо | Куда | Зачем |
 |-------------|------|-------|
 | `bin/layout-switch.sh` | `~/bin/layout-switch.sh` | переключение раскладки **всех** клавиатур Hyprland (`0`=EN, `1`=RU) |
-| `xkb/symbols_custom_xkb` | `/usr/share/X11/xkb/symbols/custom` | вариант `rshift_compose`: правый Shift → Multi_key |
-| `hypr/hyprland.lua` | `~/.config/hypr/hyprland.lua` | `kb_layout = "custom(rshift_compose),ru"` + бинды `code:108/105` |
+| `xkb/symbols_custom_xkb` | _архив_ (было `/usr/share/X11/xkb/symbols/custom`) | вариант `rshift_compose` — если захочешь вернуть Compose на другую клавишу |
+| `hypr/hyprland.lua` | `~/.config/hypr/hyprland.lua` | `kb_layout = "us,ru"` + бинды `code:108/105` |
 | `docs/keymap-raw.txt` | — | полная физическая карта клавиш (wev) |
 | `docs/issue-monsgeek-akko-linux.txt` | — | баг-репорт для monsgeek-akko-linux |
 
@@ -46,15 +46,11 @@ iot_driver remap 88 End              # PageDown -> End
 - `remap N N` ≠ no-op: целевое число 0–9 трактуется как имя клавиши-цифры (перезапишет клавишу!). Сначала `reset`.
 - Индексы 85–88 (по клавишам): 85=Home, 86=Delete, 87=PageUp, 88=PageDown (физика).
 
-## Установка раскладок Hyprland / xkb
+## Установка раскладок Hyprland
 
-1. Скопировать `xkb/symbols_custom_xkb` → `/usr/share/X11/xkb/symbols/custom`, проверить:
-   ```bash
-   xkbcli compile-keymap --layout "custom(rshift_compose),ru" | grep -n RTSH || true
-   ```
-2. Скопировать `bin/layout-switch.sh` → `~/bin/` (`chmod +x`).
-3. В `hyprland.lua`: `kb_layout = "custom(rshift_compose),ru"` и два бинда (см. `hypr/hyprland.lua`).
-4. `hyprctl reload`.
+1. Скопировать `bin/layout-switch.sh` → `~/bin/` (`chmod +x`).
+2. В `hyprland.lua`: `kb_layout = "us,ru"` и два бинда (см. `hypr/hyprland.lua`).
+3. `hyprctl reload`.
 
 ## Почему скрипт переключения такой странный
 
@@ -69,7 +65,14 @@ hyprctl switchxkblayout -- "-------gaming-keyboard" 0
 Скрипт перебирает все устройства из `hyprctl devices -j`, потому что печать может
 идти не через тот интерфейс, который переключаешь по имени.
 
-## Compose-шпаргалка (зажать правый Shift)
+## Compose (архив, если захочешь вернуть на другую клавишу)
+
+В `xkb/symbols_custom_xkb` лежит вариант `rshift_compose` (правый Shift → Multi_key).
+Если решишь вернуть Compose, но не на правый Shift — поменяй клавишу в файле
+(например `replace key <RCTL>` для правого Ctrl или `RALT`) и подключи
+`kb_layout = "custom(...),ru"`.
+
+Последовательности Compose:
 
 | Последовательность | Результат |
 |--------------------|-----------|
