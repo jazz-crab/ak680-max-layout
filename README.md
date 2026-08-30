@@ -46,6 +46,13 @@ iot_driver remap 87 prtsc            # PageUp -> PrtScr
 iot_driver remap 88 End              # PageDown -> End
 ```
 
+Hall Effect (все клавиши): активация **1.0 мм**, отпускание **1.5 мм** — лёгкое срабатывание.
+
+```bash
+sudo iot_driver set-actuation 1.0    # точка срабатывания (было 2.0 мм)
+sudo iot_driver set-release 1.5      # точка отпускания (было 2.8 мм)
+```
+
 Примечания:
 - **index 0 — пустышка**: `remap 0 ...` молча не применяется, а физический Esc это **index 1**.
 - `remap N N` ≠ no-op: целевое число 0–9 трактуется как имя клавиши-цифры (перезапишет клавишу!). Сначала `reset`.
