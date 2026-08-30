@@ -52,6 +52,40 @@ iot_driver remap 88 End              # PageDown -> End
 - Индексы 85–88 (по клавишам): 85=Home, 86=Delete, 87=PageUp, 88=PageDown (физика).
 - Fn-слой адресуется префиксом `Fn+Клавиша` (например `Fn+T`) — `iot_driver` умеет.
 
+## Ё: удержание «е» (Mod-Tap) — запасной вариант
+
+Основной способ — `Fn+«е»`. Альтернатива, если захочешь ё без Fn: **удержание «е»
+~200 мс → «ё»**. Проверено на живой прошивке (RY5088): семантика Mod-Tap —
+**tap = слой 1, hold = слой 0**.
+
+```bash
+# 1. Включить Mod-Tap на физическом T (index 32)
+sudo iot_driver set-key-trigger 32 --mode mod-tap
+sudo iot_driver set-modtap-time 32 200   # порог tap-vs-hold, мс (шаг 10 мс)
+
+# 2. Выходы: удержание (слой 0) = grave/ё, тап (слой 1) = «е»
+sudo iot_driver remap T '`'
+sudo iot_driver remap "L1+T" T
+
+# 3. Проверка: keymatrix T покажет L0=`, L1=T
+sudo iot_driver keymatrix
+```
+
+Откат (вернуть обычную «е»):
+
+```bash
+sudo iot_driver set-key-trigger 32 --mode normal
+sudo iot_driver reset-key T
+sudo iot_driver reset-key "L1+T"
+```
+
+Замечания:
+- `reset-key "L1+T"` обнуляет слой 1 в «ничего» — быстрый тап перестаёт печатать,
+  поэтому для Mod-Tap слой 1 возвращается явно (`remap "L1+T" T`).
+- Режим `--mode toggle-dots` (двойной тап → ё) **не подходит**: прошивка включает
+  автоповтор/залипание выхода до повторного тапа (проверено, см. TASKS.md).
+- Fn+«е» при включённом Mod-Tap продолжает работать (Fn-слой выше keymatrix).
+
 ## Подсветка (User Picture, режим 13)
 
 Статичная по-зонам схема в стиле TokyoNight заливается в прошивку как userpic
