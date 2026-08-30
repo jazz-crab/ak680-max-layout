@@ -7,12 +7,17 @@
 
 | Клавиша | Стало | Где реализовано |
 |---------|-------|-----------------|
-| Угол (левая от 1) | `` ` `` / **ё** | прошивка (remap index 1 → HID 0x35) |
-| CapsLock | **Esc** | прошивка (remap index 3) |
+| Esc (угол, он же левая от 1) | **Esc** (по классике) | прошивка (remap index 1 → Escape) |
+| Fn + «е» (физический `T`, в RU «е») | **ё** (HID grave) | прошивка (remap `Fn+T` → `` ` ``) |
+| CapsLock | **CapsLock** (заводской) | — (ремап Caps→Esc снят) |
 | Колонка (Home/Del/PgUp/PgDn) | **Del/Home/PrtSc/End** | прошивка (remap 85–88) |
 | Правый Shift | **обычный Shift** (по умолчанию) | — |
 | Правый Alt | **переключение на EN** | Hyprland bind `code:108` |
 | Правый Ctrl | **переключение на RU** | Hyprland bind `code:105` |
+
+> Клавиша ё на этой клавиатуре — одна с Esc (угол), поэтому ё вынесена на
+> **Fn + «е»** (физический `T`): в русской раскладке даёт «ё», в английской `` ` ``.
+> Запасной вариант (hold/double-tap «е») — см. `TASKS.md`.
 
 > Ремапы прошивки — по **индексам матрицы**, не по именам: `iot_driver` берёт имена
 > клавиш из статической таблицы, которая для этой клавиатуры расходится с физикой
@@ -33,8 +38,8 @@
 
 ```bash
 iot_driver reset                     # вернуть к заводским (подтвердить y)
-iot_driver remap 1 '`'               # угол (Esc) -> grave/ё  — ВАЖНО: индекс 1, не 0
-iot_driver remap 3 Escape            # Caps -> Esc
+iot_driver remap 1 Escape            # угол (Esc) -> Esc, классика — ВАЖНО: индекс 1, не 0
+iot_driver remap "Fn+T" '`'          # Fn+«е» -> grave/ё (в русской раскладке)
 iot_driver remap 85 Delete           # Home -> Delete
 iot_driver remap 86 Home             # Delete -> Home
 iot_driver remap 87 prtsc            # PageUp -> PrtScr
@@ -45,6 +50,30 @@ iot_driver remap 88 End              # PageDown -> End
 - **index 0 — пустышка**: `remap 0 ...` молча не применяется, а физический Esc это **index 1**.
 - `remap N N` ≠ no-op: целевое число 0–9 трактуется как имя клавиши-цифры (перезапишет клавишу!). Сначала `reset`.
 - Индексы 85–88 (по клавишам): 85=Home, 86=Delete, 87=PageUp, 88=PageDown (физика).
+- Fn-слой адресуется префиксом `Fn+Клавиша` (например `Fn+T`) — `iot_driver` умеет.
+
+## Подсветка (User Picture, режим 13)
+
+Статичная по-зонам схема в стиле TokyoNight заливается в прошивку как userpic
+(слот 0, режим User Picture):
+
+| Зона | Цвет |
+|------|------|
+| Буквы | синий `#7aa2f7` |
+| Цифры (1–0) | зелёный `#9ece6a` |
+| Столбик справа (Home/Del/PgUp/PgDn) | жёлтый `#e0af68` |
+| Вспомогательные (Esc, F-ряд, моды, Enter, Space…) | фиолетовый `#bb9af7` |
+
+Картинка-исходник: `assets/userpic-tokyonight.png` (скейл ×10, заливать с `--nearest`).
+
+```bash
+sudo iot_driver userpic --nearest assets/userpic-tokyonight.png -s 0   # режим станет 13
+```
+
+Особенности прошивки: при нажатии любой клавиши в этом режиме она кратко
+вспыхивает цветом `(0,200,200)` (cyan) — это фича прошивки, не скрипт.
+Схема раскладки картинки: индекс клавиши `i` → пиксель `(col=i/6, row=i%6)`,
+col-major, 16×6.
 
 ## Установка раскладок Hyprland
 
