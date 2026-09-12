@@ -60,11 +60,16 @@
 (`PROTOCOL.md`: режимы off/static/breathing/neon/wave/flowing, транзакции
 begin→payload→commit, checksum `0xFF − sum(байты 0..6)`). Рабочий CLI на libusb — `c18ctl`.
 
-- [ ] Подключить подсветку C-18. Лучший путь — **libratbag**: чистый и mergeable
-      PR #1877 «Add: SOAI C18 gaming mouse driver» (ветка `soai-c18-driver` в форке
-      PadreAdamo/libratbag, 1287 строк; LED/DPI/кнопки проверены через
-      `ratbagd`/`ratbagctl`). Варианты: дождаться мержа в апстрим / применить PR
-      в локалке / пользоваться `c18ctl` уже сейчас.
+- [x] **Подсветка C-18 готова** (2026-09-13): статичный цвет управляется
+      `bin/mouse-color.sh` через `c18_usb_seq3` (только интерфейс 2, vendor).
+      **ВАЖНО**: не detach интерфейсы 0/1 (ввод мыши) — usbhid не вернётся,
+      курсор замрёт до переподключения USB (подробности — README.md).
+      Дальнейшее: DPI/кнопки — через **libratbag** (см. ниже).
+- [ ] Оставшийся путь — **libratbag**: чистый и mergeable PR #1877 «Add: SOAI C18
+      gaming mouse driver» (ветка `soai-c18-driver` в форке PadreAdamo/libratbag,
+      1287 строк; LED/DPI/кнопки проверены через `ratbagd`/`ratbagctl`).
+      Варианты: дождаться мержа в апстрим / применить PR в локалке / пользоваться
+      `c18ctl` уже сейчас.
 
 ## OpenRGB — решение (форк НЕ делаем)
 

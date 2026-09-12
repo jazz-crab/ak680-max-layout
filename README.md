@@ -116,6 +116,33 @@ sudo iot_driver userpic --nearest assets/userpic-tokyonight.png -s 0   # реж�
 Схема раскладки картинки: индекс клавиши `i` → пиксель `(col=i/6, row=i%6)`,
 col-major, 16×6.
 
+## Смена цвета по экрану Deskflow (KVM)
+
+При переключении активного экрана (server ↔ client) клавиатура и мышь перекрашиваются:
+
+| Активный экран | Клавиатура (режим Constant) | Мышь C-18 (static) |
+|----------------|------------------------------|--------------------|
+| server (сервер)  | `#0096FF` (голубой)          | `R=0 G=150 B=255`  |
+| client (клиент) | `#6B8E23` (болотный)       | `R=107 G=142 B=35` |
+
+Механика:
+- Deskflow-core пишет в лог строку вида `switch from "server" to "client"` 
+  (`/tmp/deskflow-server.log`, level INFO). Enter/Exit-хуков в Deskflow 1.26 нет,
+  поэтому событие ловится `tail -F` лога.
+- Демон `bin/deskflow-color-daemon.sh` → `bin/deskflow-color.sh`, дальше
+  `bin/kbd-color.sh` (`sudo -n iot_driver set-led 1 4 2 R G B`) и
+  `bin/mouse-color.sh` (static-цвет через `c18_usb_seq3`).
+- Автозапуск: systemd user-сервис `deskflow-color.service`
+  (WantedBy=graphical-session.target), см. `~/.config/systemd/user/`.
+
+Проверка: `sudo timeout 5 cat /dev/input/mice | wc -c` должен давать >0 при движении.
+
+> ВАЖНО про мышь: `c18_usb_seq3` общается только с интерфейсом 2 (vendor).
+> Никогда не detach интерфейсы 0/1 (ввод мыши) — usbhid не вернётся, курсор
+> замрёт до переподключения USB. Фикс уже в патче
+> `/path/to/c18_usb_seq3.c` и в собранном
+> `/usr/local/bin/c18_usb_seq3`.
+
 ## Установка раскладок Hyprland
 
 1. Скопировать `bin/layout-switch.sh` → `~/bin/` (`chmod +x`).
