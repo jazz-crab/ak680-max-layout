@@ -157,6 +157,26 @@ hyprctl switchxkblayout -- "-------gaming-keyboard" 0
 
 Полный список: `/usr/share/X11/locale/en_US.UTF-8/Compose`.
 
+## Реверс-инжиниринг и внешние ссылки
+
+Протокол этой клавиатуры раскрыт полностью — реверсить её самому не нужно, только
+пользоваться готовым:
+
+- **echtzeit-solutions/monsgeek-akko-linux** (same as `iot_driver`) — драйвер и реверс RY5088:
+  - `docs/PROTOCOL.md` — протокол подсветки (`SET_LEDPARAM` 0x07/0x87, `SET_USERPIC` 0x0C,
+    режимы 13=User Picture, 25=Per-Key; per-LED стриминг `0xE8` — только после MONSMOD-патча прошивки);
+  - `data/devices.json` — каталог устройств: AK680 MAX = 4 записи, лэйаут `Common68_K80X68`;
+  - `data/key_layouts.json` — полный маппинг имён клавиш по индексам.
+- **dot-agi/ry5088-flasher** — флешер и структура прошивки (платформа RY5088: AT32F405 + PAN1080).
+- **Соседка AK680MC** (не MAX) — та же платформа RY5088, но лэйаут `Common68_ak680mcc`
+  («del end pgup pgdn») — при поиске лэйаутов не путать. Надёжный дискриминатор — dev_id
+  прошивки (USB PID 0x502B/0x502D переиспользуется между моделями).
+
+Прецеденты реверса других AJAZZ (платформа Sonix, к RY5088 неприменимы):
+- `gohv/EPOMAKER-Ajazz-AK820-Pro` (`ak820-ctl`) — Rust CLI/GUI для AK820 Pro, 20 режимов RGB;
+- `not-nullptr/openajazz` — Rust-демон RGB-эффектов для AK820/AK35i;
+- SonixQMK: из AJAZZ там только AK33 Rev1/2, проект официально deprecated.
+
 ## Диагностика
 
 - `iot_driver info` — VID/PID, Device ID, имя прошивки.
