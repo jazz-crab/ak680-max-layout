@@ -33,6 +33,7 @@
 | `hypr/hyprland.lua` | `~/.config/hypr/hyprland.lua` | `kb_layout = "us,ru"` + бинды `code:108/105` |
 | `docs/keymap-raw.txt` | — | полная физическая карта клавиш (wev) |
 | `docs/issue-monsgeek-akko-linux.txt` | — | баг-репорт для monsgeek-akko-linux |
+| `windows/ak680_apply.py` | — (запускать с Windows-машины) | заливка firmware-конфига **с Windows** через HID (hidapi), без Linux и без `sudo` |
 
 ## Ремапы прошивки (команды)
 
@@ -58,6 +59,35 @@ sudo iot_driver set-release 1.5      # точка отпускания (было
 - `remap N N` ≠ no-op: целевое число 0–9 трактуется как имя клавиши-цифры (перезапишет клавишу!). Сначала `reset`.
 - Индексы 85–88 (по клавишам): 85=Home, 86=Delete, 87=PageUp, 88=PageDown (физика).
 - Fn-слой адресуется префиксом `Fn+Клавиша` (например `Fn+T`) — `iot_driver` умеет.
+
+## Заливка с Windows (без Linux и без sudo)
+
+`iot_driver` под Windows не работает (Rust + hidraw/udev), но клавиатура отдаёт **тот же
+протокол RY5088 через свой HID-интерфейс** (интерфейс 2, `usage_page 0xFFFF` / `usage 0x02`).
+Поэтому конфиг можно залить нативно из Windows через `hidapi`: права администратора не нужны,
+клавиатура при этом **не отключается** (в отличие от проброса через USB/IP и `usbipd-win`).
+Нужен Python 3 и `pip install hidapi pillow`.
+
+```powershell
+python windows\ak680_apply.py --read-only   # прочитать состояние + бэкап backup-<ts>.json
+python windows\ak680_apply.py --verify      # сверить с целевым состоянием
+python windows\ak680_apply.py --yes         # залить (ремапы + активация + подсветка)
+python windows\ak680_apply.py --yes --no-userpic   # без подсветки
+```
+
+Скрипт делает то же, что команды выше: пять ремапов base-слоя (`1→Esc`, `85→Delete`,
+`86→Home`, `87→PrtScr`, `88→End`), `Fn+T → `` ` `` (SET_FN), активация 1.0 / отпускание
+1.5 мм (`SET_MULTI_MAGNETISM`, все 90 позиций) и userpic TokyoNight в слот 0 + режим LED 13.
+Перед записью всегда снимает бэкап в JSON — им же можно вернуть как было.
+
+Проверено 2026-10-18 (Windows 11, Python 3.13, hidapi 0.15): `device_id` 2255, прошивка v306,
+precision 100 (шаг 0.01 мм → 1.0 мм = raw 100, 1.5 мм = raw 150). Все записи подтверждены
+чтением назад; картинка подсветки совпала с залитой побайтово.
+
+> **Нюанс прошивки v306:** подряд идущие записи `SET_KEYMATRIX` иногда «проглатываются» —
+> из пяти ремапов применились три, `85` и `87` остались заводскими. Скрипт поэтому пишет
+> с проверкой: запись → чтение назад → повтор до совпадения. Если заливаешь через
+> `iot_driver`, результат так же стоит проверять `iot_driver keymatrix`.
 
 ## Ё: удержание «е» (Mod-Tap) — запасной вариант
 
@@ -210,4 +240,6 @@ hyprctl switchxkblayout -- "-------gaming-keyboard" 0
 - `hyprctl devices` — текущая раскладка каждой клавиатуры.
 - `hyprctl binds | grep -A2 code:108|105` — проверка биндов.
 
-Тестировано на Arch Linux (Hyprland/Wayland), 2026-08-30.
+Тестировано на Arch Linux (Hyprland/Wayland), 2026-08-30. Конфиг пере-залит 2026-10-18
+с Windows через `windows/ak680_apply.py` (после сброса клавиатуры) — сверено чтением с
+устройства.
