@@ -30,7 +30,7 @@
 |-------------|------|-------|
 | `bin/layout-switch.sh` | `~/bin/layout-switch.sh` | переключение раскладки **всех** клавиатур Hyprland (`0`=EN, `1`=RU) |
 | `xkb/symbols_custom_xkb` | _архив_ (было `/usr/share/X11/xkb/symbols/custom`) | вариант `rshift_compose` — если захочешь вернуть Compose на другую клавишу |
-| `hypr/hyprland.lua` | `~/.config/hypr/hyprland.lua` | `kb_layout = "us,ru"` + бинды `code:108/105` |
+| `hypr/keyboard.lua` | фрагмент для `~/.config/hypr/hyprland.lua` | `kb_layout = "us,ru"` + бинды `code:108/105` + старт Deskflow (**фрагмент**, не конфиг целиком) |
 | `docs/keymap-raw.txt` | — | полная физическая карта клавиш (wev) |
 | `docs/issue-monsgeek-akko-linux.txt` | — | баг-репорт для monsgeek-akko-linux |
 | `windows/ak680_apply.py` | — (запускать с Windows-машины) | заливка firmware-конфига **с Windows** через HID (hidapi), без Linux и без `sudo` |
@@ -180,7 +180,10 @@ col-major, 16×6.
 ## Установка раскладок Hyprland
 
 1. Скопировать `bin/layout-switch.sh` → `~/bin/` (`chmod +x`).
-2. В `hyprland.lua`: `kb_layout = "us,ru"` и два бинда (см. `hypr/hyprland.lua`).
+2. Влить в свой `~/.config/hypr/hyprland.lua` фрагмент `hypr/keyboard.lua`:
+   `kb_layout = "us,ru"` + два бинда (`code:108` → EN, `code:105` → RU) + старт Deskflow.
+   Это именно фрагмент: полный личный `hyprland.lua` в репо не лежит (он в отдельном
+   приватном репозитории) — свой `hl.config({ input = ... })` не затирай целиком.
 3. `hyprctl reload`.
 
 ## Почему скрипт переключения такой странный
