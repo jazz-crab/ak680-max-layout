@@ -4,6 +4,9 @@
 # строкой "switch from "X" to "Y"" в логе сервера (/tmp/deskflow-server.log).
 #
 # Запуск: deskflow-color-daemon.sh  (по желанию — в фон, например из hyprland autostart)
+#
+# Имена хостов, которые скрипт прокидывает в deskflow-color.sh, берутся из лога Deskflow
+# как есть; в примерах ниже они заменены плейсхолдерами server/client — подставь свои.
 set -euo pipefail
 
 LOG="${DESKFLOW_LOG:-/tmp/deskflow-server.log}"

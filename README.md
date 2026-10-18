@@ -155,6 +155,10 @@ col-major, 16×6.
 | server (сервер)  | `#0096FF` (голубой)          | `R=0 G=150 B=255`  |
 | client (клиент) | `#6B8E23` (болотный)       | `R=107 G=142 B=35` |
 
+> Имена машин в примерах — плейсхолдеры (`server` / `client`). Скрипты получают имя
+> из строки лога Deskflow как есть, поэтому в своих копиях `bin/deskflow-color*.sh`
+> подставь реальные имена хостов (в `case` и в значении по умолчанию).
+
 Механика:
 - Deskflow-core пишет в лог строку вида `switch from "server" to "client"` 
   (`/tmp/deskflow-server.log`, level INFO). Enter/Exit-хуков в Deskflow 1.26 нет,
