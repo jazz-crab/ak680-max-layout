@@ -17,7 +17,7 @@ usage page 0xFFFF / usage 0x02). Драйвер iot_driver для этого н�
 
 Что делает (ровно как README.md репозитория):
   1. base-layer ремапы: 3 (Caps) -> Esc, 1 (физический Esc) -> ` (grave: в EN это `,
-     в RU — ё), 85 -> Delete, 86 -> Home, 87 -> End, 88 -> PrintScr (PrtSc и End поменяны)
+     в RU — ё), 85 -> Delete, 86 -> Home, 87 -> PrintScr, 88 -> End
   2. Fn-слой: Fn+T -> ` (grave) — запасной способ напечатать ё
   3. Hall Effect: активация 1.0mm (raw 100), отпускание 1.5mm (raw 150), все 90 позиций
   4. подсветка: userpic TokyoNight, раскрашенный ПО КЛАВИШАМ (через таблицу матрицы),
@@ -69,10 +69,10 @@ KEY = {"Escape": 0x29, "Delete": 0x4C, "Home": 0x4A, "PrintScr": 0x46, "End": 0x
 # base-слой: позиция матрицы -> HID usage.
 #   1  = физический Esc/угол -> ` (в русской раскладке это ё)
 #   3  = физический Caps     -> Esc (CapsLock не нужен)
-#   85..88 = правый столбец  -> Delete / Home / End / PrintScreen
-#            (PrtSc и End поменяны местами: 87 = End, 88 = PrintScr)
+#   85..88 = правый столбец  -> Delete / Home / PrintScreen / End
+#            (PrtSc и End стоят в исходном порядке: 87 = PrtSc, 88 = End)
 BASE_REMAPS = [(3, KEY["Escape"]), (1, KEY["grave"]), (85, KEY["Delete"]),
-               (86, KEY["Home"]), (87, KEY["End"]), (88, KEY["PrintScr"])]
+               (86, KEY["Home"]), (87, KEY["PrintScr"]), (88, KEY["End"])]
 FN_REMAPS = [(32, KEY["grave"])]          # Fn + физический T (index 32) -> ё
 ACTUATION_MM, RELEASE_MM = 1.0, 1.5
 USERPIC_SLOT = 0
@@ -111,10 +111,10 @@ MATRIX_USAGE = [
 # PREVIEW (пастельной) — картинка должна выглядеть как TokyoNight.
 TOKYO = {
     "blue":    (0x7A, 0xA2, 0xF7),   # синий      — A..Z, вся пунктуация, `
-    "orange":  (0xFF, 0x80, 0x00),   # оранжевый  — 1..0, - =, Home/End, стрелки
+    "orange":  (0xFF, 0x80, 0x00),   # оранжевый  — 1..0, - =, Space, стрелки
     "sky":     (0x4F, 0xC3, 0xFF),   # голубой    — PrtSc
     "red":     (0xFF, 0x00, 0x18),   # красный    — Enter, Backspace, Del, Esc, Win
-    "purple":  (0xCC, 0x33, 0xFF),   # фиолетовый — Tab, Space, Shift/Ctrl/Alt/Fn
+    "purple":  (0xCC, 0x33, 0xFF),   # фиолетовый — Tab, Home/End, Shift/Ctrl/Alt/Fn
 }
 
 # Яркость зоны на железе (1.0 = как есть). Сейчас приглушать нечего; словарь
@@ -161,10 +161,12 @@ def zone_name(usage):
     if usage in (0x4C, 0xE3):                    # Delete, Win
         return "red"
     if usage in (0x4A, 0x4D):                    # Home, End
-        return "orange"
+        return "purple"
     if usage == 0x46:                            # PrintScreen
         return "sky"
-    if usage in (0x4B, 0x4E, 0x4F, 0x50, 0x51, 0x52):   # PgUp/PgDn, стрелки
+    if usage == 0x4B or usage in (0x4E, 0x4F, 0x50, 0x51, 0x52):   # PgUp/PgDn, стрелки
+        return "orange"
+    if usage == 0x2C:                            # Space
         return "orange"
     return "purple"                              # Tab, Space, модификаторы, Fn
 
@@ -205,10 +207,10 @@ PHYS_LAYOUT = [
      (0x13, "P", 1), (0x2F, "[", 1), (0x30, "]", 1), (0x31, "\\", 1.5), (0x4A, "Home", 1)],
     [(0x29, "Esc", 1.75), (0x04, "A", 1), (0x16, "S", 1), (0x07, "D", 1), (0x09, "F", 1),
      (0x0A, "G", 1), (0x0B, "H", 1), (0x0D, "J", 1), (0x0E, "K", 1), (0x0F, "L", 1),
-     (0x33, ";", 1), (0x34, "'", 1), (0x28, "Enter", 2.25), (0x4D, "End", 1)],
+     (0x33, ";", 1), (0x34, "'", 1), (0x28, "Enter", 2.25), (0x46, "PrtSc", 1)],
     [(0xE1, "Shift", 2.25), (0x1D, "Z", 1), (0x1B, "X", 1), (0x06, "C", 1), (0x19, "V", 1),
      (0x05, "B", 1), (0x11, "N", 1), (0x10, "M", 1), (0x36, ",", 1), (0x37, ".", 1),
-     (0x38, "/", 1), (0xE6, "Shift", 1.75), (0x52, "Up", 1), (0x46, "PrtSc", 1)],
+     (0x38, "/", 1), (0xE6, "Shift", 1.75), (0x52, "Up", 1), (0x4D, "End", 1)],
     [(0xE0, "Ctrl", 1.25), (0xE3, "Win", 1.25), (0xE2, "Alt", 1.25), (0x2C, "Space", 5.5),
      (0xE5, "Alt", 1.25), (None, "Fn", 1.25), (0xE4, "Ctrl", 1.25),
      (0x50, "Left", 1), (0x51, "Down", 1), (0x4F, "Right", 1)],
@@ -217,10 +219,10 @@ PHYS_LAYOUT = [
 BG = (0x1A, 0x1B, 0x26)
 LEGEND = [
     ((0x35,), "буквы, пунктуация, `"),
-    ((0x1E,), "цифры, Home, End, стрелки"),
+    ((0x1E,), "цифры, Space, стрелки"),
     ((0x28,), "Enter, Bksp, Del, Esc, Win"),
     ((0x46,), "PrtSc"),
-    ((0x2B,), "Tab, Space, моды, Fn"),
+    ((0x2B,), "Home, End, Tab, моды, Fn"),
 ]
 
 

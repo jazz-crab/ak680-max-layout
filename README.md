@@ -10,7 +10,7 @@
 | CapsLock | **Esc** (CapsLock убран за ненадобностью) | прошивка (remap index 3 → Escape) |
 | Esc (угол, слева от 1) | **`** (HID grave; в RU — ё) | прошивка (remap index 1 → grave) |
 | Fn + «е» (физический `T`) | **`** (в RU — ё) — запасной способ | прошивка (remap `Fn+T` → `` ` ``) |
-| Колонка (Home/Del/PgUp/PgDn) | **Del/Home/End/PrtSc** (PrtSc и End поменяны местами) | прошивка (remap 85–88) |
+| Колонка (Home/Del/PgUp/PgDn) | **Del/Home/PrtSc/End** (PrtSc и End вернули как было) | прошивка (remap 85–88) |
 | Правый Shift | **обычный Shift** (по умолчанию) | — |
 | Правый Alt | **переключение на EN** | Hyprland bind `code:108` |
 | Правый Ctrl | **переключение на RU** | Hyprland bind `code:105` |
@@ -41,7 +41,7 @@ python windows\ak680_apply.py --verify   # когда угодно: сверит
 
 | Что | Значение |
 |-----|----------|
-| base-слой | `3→Esc`, `1→grave`, `85→Del`, `86→Home`, `87→End`, `88→PrtScr` |
+| base-слой | `3→Esc`, `1→grave`, `85→Del`, `86→Home`, `87→PrtScr`, `88→End` |
 | Fn-слой | `Fn+T` → grave (в EN — `` ` ``, в RU — ё) |
 | Hall Effect | активация 1.0 мм, отпускание 1.5 мм, все 90 позиций |
 | Подсветка | userpic TokyoNight по клавишам, слот 0, режим LED 13 |
@@ -72,8 +72,8 @@ iot_driver remap 1 '`'               # угол (физический Esc) -> gr
 iot_driver remap "Fn+T" '`'          # Fn+«е» -> grave/ё (запасной способ)
 iot_driver remap 85 Delete           # Home -> Delete
 iot_driver remap 86 Home             # Delete -> Home
-iot_driver remap 87 End              # PageUp -> End
-iot_driver remap 88 prtsc            # PageDown -> PrtScr
+iot_driver remap 87 prtsc            # PageUp -> PrtScr
+iot_driver remap 88 End              # PageDown -> End
 ```
 
 Hall Effect (все клавиши): активация **1.0 мм**, отпускание **1.5 мм** — лёгкое срабатывание.
@@ -106,7 +106,7 @@ python windows\ak680_apply.py --write-png assets   # пересобрать PNG 
 ```
 
 Скрипт делает то же, что команды выше: шесть ремапов base-слоя (`3→Esc`, `1→grave`,
-`85→Delete`, `86→Home`, `87→End`, `88→PrtScr`), `Fn+T → `` ` `` (SET_FN), активация 1.0 /
+`85→Delete`, `86→Home`, `87→PrtScr`, `88→End`), `Fn+T → `` ` `` (SET_FN), активация 1.0 /
 отпускание 1.5 мм (`SET_MULTI_MAGNETISM`, все 90 позиций) и userpic TokyoNight **по
 клавишам** в слот 0 + режим LED 13. Перед записью всегда снимает бэкап в JSON — им же
 можно вернуть как было.
@@ -166,20 +166,20 @@ sudo iot_driver reset-key "L1+T"
 | Буквы | A–Z | синий `#7aa2f7` |
 | Пунктуация | `[ ] \ ; ' , . /` | синий `#7aa2f7` (как буквы) |
 | Угол (физический Esc) | `` ` `` | синий `#7aa2f7` |
-| Цифры, Home/End, стрелки | 1–0, `-`, `=`, Home/End, ← ↓ → ↑ | оранжевый `#ff8000` |
+| Цифры, Space, стрелки | 1–0, `-`, `=`, Space, ← ↓ → ↑ | оранжевый `#ff8000` |
 | Enter / Backspace | ⏎ ⌫ | красный `#ff0018` |
 | Delete | Del | красный `#ff0018` |
 | Esc (на месте CapsLock) | Esc | красный `#ff0018` |
 | Win | ⊞ | красный `#ff0018` |
 | PrintScreen | PrtSc | голубой `#4fc3ff` |
-| Модификаторы | Tab, Space, Shift, Ctrl, Alt, Fn | фиолетовый `#cc33ff` |
+| Home, End, модификаторы | Home/End, Tab, Shift, Ctrl, Alt, Fn | фиолетовый `#cc33ff` |
 
 Это **сочные** варианты зон, а не hex-коды TokyoNight: пастельные `#ff9e64`,
 `#e0af68`, `#f7768e`, `#bb9af7` на подсветке выглядели белёсыми (у тёплых в составе
 много синего — он яркий и добавляет белизны; у фиолетового синий в максимуме — и он
 читался как синий). Поэтому у оранжевого и красного `B = 0`, фиолетовый сдвинут
-в красную сторону. Отдельного жёлтого нет: Home/End и стрелки — того же оранжевого,
-что и цифры.
+в красную сторону. Отдельного жёлтого нет: Space и стрелки — того же оранжевого,
+что и цифры; Home и End — фиолетовые, как модификаторы.
 
 Превью `assets/keyboard-tokyonight.png` при этом рисуется **пастельной** палитрой
 TokyoNight (`PREVIEW` в скрипте) — картинка должна выглядеть как TokyoNight, а не как
