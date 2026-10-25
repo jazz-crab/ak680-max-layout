@@ -16,8 +16,8 @@ usage page 0xFFFF / usage 0x02). Драйвер iot_driver для этого н�
   страничные — без echo (просто 64 байта данных).
 
 Что делает (ровно как README.md репозитория):
-  1. base-layer ремапы: 3 (Caps) -> Esc, 1 (физический Esc) -> ` (на RU это ё),
-     85 -> Delete, 86 -> Home, 87 -> End, 88 -> PrintScr (PrtSc и End поменяны)
+  1. base-layer ремапы: 3 (Caps) -> Esc, 1 (физический Esc) -> ` (grave: в EN это `,
+     в RU — ё), 85 -> Delete, 86 -> Home, 87 -> End, 88 -> PrintScr (PrtSc и End поменяны)
   2. Fn-слой: Fn+T -> ` (grave) — запасной способ напечатать ё
   3. Hall Effect: активация 1.0mm (raw 100), отпускание 1.5mm (raw 150), все 90 позиций
   4. подсветка: userpic TokyoNight, раскрашенный ПО КЛАВИШАМ (через таблицу матрицы),
@@ -105,13 +105,19 @@ MATRIX_USAGE = [
 
 # TokyoNight (night): зоны. Цвет — по ДЕЙСТВИЮ клавиши (после ремапа), а не по
 # заводскому usage: иначе Del и Home получали бы один и тот же «nav».
+#
+# ВАЖНО: это НЕ hex-коды TokyoNight, а СОЧНЫЕ (=насыщенные) варианты тех же
+# зон. Пастельные #ff9e64 / #e0af68 / #f7768e / #bb9af7 на подсветке вымываются:
+# у тёплых цветов много синего в составе (он яркий → добавляет белизны), у
+# фиолетового синий в максимуме. Поэтому у оранжевого/жёлтого/красного B = 0,
+# фиолетовый сдвинут в красную сторону.
 TOKYO = {
-    "blue":    (0x7A, 0xA2, 0xF7),   # #7aa2f7 синий     — A..Z, вся пунктуация, ё
-    "orange":  (0xFF, 0x9E, 0x64),   # #ff9e64 оранжевый — 1..0, - =
-    "sky":     (0x7D, 0xCF, 0xFF),   # #7dcfff голубой   — Win, PrtSc
-    "red":     (0xF7, 0x76, 0x8E),   # #f7768e красный   — Enter, Backspace, Del, Esc
-    "purple":  (0xBB, 0x9A, 0xF7),   # #bb9af7 фиолетовый — Tab, Space, Shift/Ctrl/Alt/Fn
-    "yellow":  (0xE0, 0xAF, 0x68),   # #e0af68 жёлтый    — Home, End, стрелки
+    "blue":    (0x7A, 0xA2, 0xF7),   # синий      — A..Z, вся пунктуация, `
+    "orange":  (0xFF, 0x9E, 0x00),   # оранжевый  — 1..0, - =
+    "sky":     (0x4F, 0xC3, 0xFF),   # голубой    — Win, PrtSc
+    "red":     (0xFF, 0x20, 0x30),   # красный    — Enter, Backspace, Del, Esc
+    "purple":  (0xD9, 0x6B, 0xFF),   # фиолетовый — Tab, Space, Shift/Ctrl/Alt/Fn
+    "yellow":  (0xFF, 0xDD, 0x00),   # жёлтый     — Home, End, стрелки
 }
 
 # Компенсация каналов.
@@ -170,7 +176,7 @@ def build_userpic():
 # Физическая раскладка 65% — ТОЛЬКО для превью-картинки: (usage, подпись, ширина).
 # Подписи — то, что клавиша ДЕЛАЕТ после ремапа (угол = ё, Caps = Esc).
 PHYS_LAYOUT = [
-    [(0x35, "ё", 1), (0x1E, "1", 1), (0x1F, "2", 1), (0x20, "3", 1), (0x21, "4", 1),
+    [(0x35, "`", 1), (0x1E, "1", 1), (0x1F, "2", 1), (0x20, "3", 1), (0x21, "4", 1),
      (0x22, "5", 1), (0x23, "6", 1), (0x24, "7", 1), (0x25, "8", 1), (0x26, "9", 1),
      (0x27, "0", 1), (0x2D, "-", 1), (0x2E, "=", 1), (0x2A, "Bksp", 2), (0x4C, "Del", 1)],
     [(0x2B, "Tab", 1.5), (0x14, "Q", 1), (0x1A, "W", 1), (0x08, "E", 1), (0x15, "R", 1),
@@ -189,7 +195,7 @@ PHYS_LAYOUT = [
 
 BG = (0x1A, 0x1B, 0x26)
 LEGEND = [
-    ((0x35,), "буквы, пунктуация, ё"),
+    ((0x35,), "буквы, пунктуация, `"),
     ((0x1E,), "цифры  - ="),
     ((0x28,), "Enter, Bksp, Del, Esc"),
     ((0x4A,), "Home, End, стрелки"),
@@ -234,7 +240,7 @@ def write_pngs(directory):
     if font is None:
         font = ImageFont.load_default()
         font_title = font
-    draw.text((pad, pad - 2), "AK680 MAX — Caps -> Esc, Esc -> ё, PrtSc <-> End",
+    draw.text((pad, pad - 2), "AK680 MAX — Caps -> Esc, Esc -> `, PrtSc <-> End",
               fill=(0xC0, 0xCA, 0xF5), font=font_title)
     top = pad + title_h
     for row_i, row in enumerate(PHYS_LAYOUT):
