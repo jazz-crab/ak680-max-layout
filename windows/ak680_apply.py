@@ -225,7 +225,7 @@ PHYS_LAYOUT = [
     [(0xE1, "Shift", 2.25), (0x1D, "Z", 1), (0x1B, "X", 1), (0x06, "C", 1), (0x19, "V", 1),
      (0x05, "B", 1), (0x11, "N", 1), (0x10, "M", 1), (0x36, ",", 1), (0x37, ".", 1),
      (0x38, "/", 1), (0xE6, "Shift", 1.75), (0x52, "Up", 1), (0x4D, "End", 1)],
-    [(0xE0, "Ctrl", 1.25), (0xE3, "Win", 1.25), (0xE2, "Alt", 1.25), (0x2C, "Space", 5.5),
+    [(0xE0, "Ctrl", 1.25), (0xE3, "Code", 1.25), (0xE2, "Alt", 1.25), (0x2C, "Space", 5.5),
      (0xE5, "Alt", 1.25), (None, "Fn", 1.25), (0xE4, "Ctrl", 1.25),
      (0x50, "Left", 1), (0x51, "Down", 1), (0x4F, "Right", 1)],
 ]
@@ -234,7 +234,7 @@ BG = (0x1A, 0x1B, 0x26)
 LEGEND = [
     ((0x35,), "letters, punctuation"),
     ((0x1E,), "digits, Space, arrows"),
-    ((0x28,), "Enter, Bksp, Del, Esc, Win, PrtSc, Fn"),
+    ((0x28,), "Enter, Bksp, Del, Esc, Code, PrtSc, Fn"),
     ((0x2B,), "Home, End, Tab, modifiers"),
 ]
 
