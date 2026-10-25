@@ -112,9 +112,8 @@ MATRIX_USAGE = [
 TOKYO = {
     "blue":    (0x7A, 0xA2, 0xF7),   # синий      — A..Z, вся пунктуация, `
     "orange":  (0xFF, 0x4C, 0x00),   # красно-оранжевый, чуть светлее выбранного — 1..0, - =, Space, стрелки
-    "sky":     (0x4F, 0xC3, 0xFF),   # голубой    — PrtSc
-    "red":     (0xFF, 0x00, 0x00),   # красный    — Enter, Backspace, Del, Esc, Win
-    "purple":  (0xCC, 0x33, 0xE8),   # фиолетовый, чуть краснее — Tab, Home/End, Shift/Ctrl/Alt/Fn
+    "red":     (0xFF, 0x00, 0x00),   # красный    — Enter, Backspace, Del, Esc, Win, PrtSc, Fn
+    "purple":  (0xCC, 0x33, 0xE8),   # фиолетовый, чуть краснее — Tab, Home/End, Shift/Ctrl/Alt
 }
 
 # Яркость зоны на железе (1.0 = как есть). Оранжевый выбран на глаз из
@@ -128,7 +127,6 @@ LED_LEVEL = {"orange": 0.58}
 PREVIEW = {
     "blue":    (0x7A, 0xA2, 0xF7),
     "orange":  (0xFF, 0x9E, 0x64),
-    "sky":     (0x7D, 0xCF, 0xFF),
     "red":     (0xF7, 0x76, 0x8E),
     "purple":  (0xBB, 0x9A, 0xF7),
 }
@@ -166,7 +164,7 @@ def zone_name(usage):
     if usage in (0x4A, 0x4D):                    # Home, End
         return "purple"
     if usage == 0x46:                            # PrintScreen
-        return "sky"
+        return "red"
     if usage == 0x4B or usage in (0x4E, 0x4F, 0x50, 0x51, 0x52):   # PgUp/PgDn, стрелки
         return "orange"
     if usage == 0x2C:                            # Space
@@ -186,6 +184,12 @@ def preview_color(usage):
 
 BASE_USAGE = dict(BASE_REMAPS)     # позиция -> usage на base-слое после ремапа
 
+# Fn — единственная клавиша без HID usage в матрице (позиция 65, нижний ряд
+# между правым Alt и правым Ctrl), поэтому прошивка её не красит. Красим адрес
+# напрямую: красным, как остальные «служебные» клавиши (по просьбе юзера).
+FN_POS = 65
+FN_USAGE = KEY["Escape"]           # red
+
 
 def build_userpic():
     """15x6 в порядке матрицы: цвет клавиши попадает ровно на свою позицию."""
@@ -193,6 +197,9 @@ def build_userpic():
     for pos in range(LAYOUT_COLS * LAYOUT_ROWS):
         usage = BASE_USAGE.get(pos, MATRIX_USAGE[pos])
         if not usage:
+            if pos == FN_POS:
+                data[pos * 3:pos * 3 + 3] = bytes(to_device(zone_color(FN_USAGE),
+                                                            LED_LEVEL.get(zone_name(FN_USAGE), 1.0)))
             continue                              # пустая позиция — не горит
         data[pos * 3:pos * 3 + 3] = bytes(to_device(zone_color(usage),
                                                     LED_LEVEL.get(zone_name(usage), 1.0)))
@@ -223,9 +230,8 @@ BG = (0x1A, 0x1B, 0x26)
 LEGEND = [
     ((0x35,), "буквы, пунктуация, `"),
     ((0x1E,), "цифры, Space, стрелки"),
-    ((0x28,), "Enter, Bksp, Del, Esc, Win"),
-    ((0x46,), "PrtSc"),
-    ((0x2B,), "Home, End, Tab, моды, Fn"),
+    ((0x28,), "Enter, Bksp, Del, Esc, Win, PrtSc, Fn"),
+    ((0x2B,), "Home, End, Tab, моды"),
 ]
 
 
@@ -274,7 +280,7 @@ def write_pngs(directory):
         for usage, label, w in row:
             x0 = pad + x * u
             y0 = top + row_i * u
-            color = preview_color(usage or 0xE2)
+            color = preview_color(usage or 0x28)      # Fn (без usage) — красная, как на железе
             draw.rounded_rectangle([x0 + gap, y0 + gap,
                                     x0 + w * u - gap, y0 + u - gap],
                                    radius=6, fill=color)
