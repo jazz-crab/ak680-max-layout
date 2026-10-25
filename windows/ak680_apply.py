@@ -111,7 +111,7 @@ MATRIX_USAGE = [
 # PREVIEW (пастельной) — картинка должна выглядеть как TokyoNight.
 TOKYO = {
     "blue":    (0x7A, 0xA2, 0xF7),   # синий      — A..Z, вся пунктуация, `
-    "orange":  (0xFF, 0x6A, 0x00),   # оранжевый  — 1..0, - =, Space, стрелки
+    "orange":  (0xFF, 0x5C, 0x40),   # красно-оранжевый, мягче — 1..0, - =, Space, стрелки
     "sky":     (0x4F, 0xC3, 0xFF),   # голубой    — PrtSc
     "red":     (0xFF, 0x00, 0x18),   # красный    — Enter, Backspace, Del, Esc, Win
     "purple":  (0xCC, 0x33, 0xFF),   # фиолетовый — Tab, Home/End, Shift/Ctrl/Alt/Fn
