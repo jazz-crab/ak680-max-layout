@@ -106,21 +106,20 @@ MATRIX_USAGE = [
 # Цвета ДЛЯ КЛАВИАТУРЫ. Это НЕ hex-коды TokyoNight, а СОЧНЫЕ (=насыщенные)
 # варианты тех же зон: пастельные #ff9e64 / #e0af68 / #f7768e / #bb9af7 на
 # подсветке вымываются (у тёплых много синего — он яркий и добавляет белизны,
-# у фиолетового синий в максимуме). Поэтому у оранжевого/жёлтого/красного B = 0,
+# у фиолетового синий в максимуме). Поэтому у оранжевого и красного B = 0,
 # фиолетовый сдвинут в красную сторону. Превью рисуется отдельной палитрой
 # PREVIEW (пастельной) — картинка должна выглядеть как TokyoNight.
 TOKYO = {
     "blue":    (0x7A, 0xA2, 0xF7),   # синий      — A..Z, вся пунктуация, `
-    "orange":  (0xFF, 0x80, 0x00),   # оранжевый  — 1..0, - =
+    "orange":  (0xFF, 0x80, 0x00),   # оранжевый  — 1..0, - =, Home/End, стрелки
     "sky":     (0x4F, 0xC3, 0xFF),   # голубой    — PrtSc
     "red":     (0xFF, 0x00, 0x18),   # красный    — Enter, Backspace, Del, Esc, Win
     "purple":  (0xCC, 0x33, 0xFF),   # фиолетовый — Tab, Space, Shift/Ctrl/Alt/Fn
-    "yellow":  (0xFF, 0xDD, 0x00),   # жёлтый     — Home, End, стрелки
 }
 
-# Яркость зоны на железе (1.0 = как есть). Жёлтый приглушён: на полной
-# яркости он бьёт по глазам.
-LED_LEVEL = {"yellow": 0.65}
+# Яркость зоны на железе (1.0 = как есть). Сейчас приглушать нечего; словарь
+# оставлен на случай, если какая-то зона снова покажется яркой.
+LED_LEVEL = {}
 
 # Цвета ДЛЯ ПРЕВЬЮ (пастельный TokyoNight) — только картинка, в прошивку не идут.
 PREVIEW = {
@@ -129,7 +128,6 @@ PREVIEW = {
     "sky":     (0x7D, 0xCF, 0xFF),
     "red":     (0xF7, 0x76, 0x8E),
     "purple":  (0xBB, 0x9A, 0xF7),
-    "yellow":  (0xE0, 0xAF, 0x68),
 }
 
 # Компенсация каналов.
@@ -163,11 +161,11 @@ def zone_name(usage):
     if usage in (0x4C, 0xE3):                    # Delete, Win
         return "red"
     if usage in (0x4A, 0x4D):                    # Home, End
-        return "yellow"
+        return "orange"
     if usage == 0x46:                            # PrintScreen
         return "sky"
     if usage in (0x4B, 0x4E, 0x4F, 0x50, 0x51, 0x52):   # PgUp/PgDn, стрелки
-        return "yellow"
+        return "orange"
     return "purple"                              # Tab, Space, модификаторы, Fn
 
 
@@ -219,9 +217,8 @@ PHYS_LAYOUT = [
 BG = (0x1A, 0x1B, 0x26)
 LEGEND = [
     ((0x35,), "буквы, пунктуация, `"),
-    ((0x1E,), "цифры  - ="),
+    ((0x1E,), "цифры, Home, End, стрелки"),
     ((0x28,), "Enter, Bksp, Del, Esc, Win"),
-    ((0x4A,), "Home, End, стрелки"),
     ((0x46,), "PrtSc"),
     ((0x2B,), "Tab, Space, моды, Fn"),
 ]
@@ -264,7 +261,7 @@ def write_pngs(directory):
     if font is None:
         font = ImageFont.load_default()
         font_title = font
-    draw.text((pad, pad - 2), "AK680 MAX — Caps -> Esc, Esc -> `, PrtSc <-> End",
+    draw.text((pad, pad - 2), "AJAZZ AK680 MAX RGB",
               fill=(0xC0, 0xCA, 0xF5), font=font_title)
     top = pad + title_h
     for row_i, row in enumerate(PHYS_LAYOUT):
