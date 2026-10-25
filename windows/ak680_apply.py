@@ -17,7 +17,7 @@ usage page 0xFFFF / usage 0x02). Драйвер iot_driver для этого н�
 
 Что делает (ровно как README.md репозитория):
   1. base-layer ремапы: 3 (Caps) -> Esc, 1 (физический Esc) -> ` (на RU это ё),
-     85 -> Delete, 86 -> Home, 87 -> PrintScr, 88 -> End
+     85 -> Delete, 86 -> Home, 87 -> End, 88 -> PrintScr (PrtSc и End поменяны)
   2. Fn-слой: Fn+T -> ` (grave) — запасной способ напечатать ё
   3. Hall Effect: активация 1.0mm (raw 100), отпускание 1.5mm (raw 150), все 90 позиций
   4. подсветка: userpic TokyoNight, раскрашенный ПО КЛАВИШАМ (через таблицу матрицы),
@@ -69,9 +69,10 @@ KEY = {"Escape": 0x29, "Delete": 0x4C, "Home": 0x4A, "PrintScr": 0x46, "End": 0x
 # base-слой: позиция матрицы -> HID usage.
 #   1  = физический Esc/угол -> ` (в русской раскладке это ё)
 #   3  = физический Caps     -> Esc (CapsLock не нужен)
-#   85..88 = правый столбец  -> Delete / Home / PrintScreen / End
+#   85..88 = правый столбец  -> Delete / Home / End / PrintScreen
+#            (PrtSc и End поменяны местами: 87 = End, 88 = PrintScr)
 BASE_REMAPS = [(3, KEY["Escape"]), (1, KEY["grave"]), (85, KEY["Delete"]),
-               (86, KEY["Home"]), (87, KEY["PrintScr"]), (88, KEY["End"])]
+               (86, KEY["Home"]), (87, KEY["End"]), (88, KEY["PrintScr"])]
 FN_REMAPS = [(32, KEY["grave"])]          # Fn + физический T (index 32) -> ё
 ACTUATION_MM, RELEASE_MM = 1.0, 1.5
 USERPIC_SLOT = 0
@@ -102,72 +103,107 @@ MATRIX_USAGE = [
     49, 40, 82, 81, 0, 74, 76, 75, 78, 79,
 ] + [0] * (LAYOUT_COLS * LAYOUT_ROWS - 90)
 
-# TokyoNight (night): зоны
+# TokyoNight (night): зоны. Цвет — по ДЕЙСТВИЮ клавиши (после ремапа), а не по
+# заводскому usage: иначе Del и Home получали бы один и тот же «nav».
 TOKYO = {
-    "letters": (0x7A, 0xA2, 0xF7),   # #7aa2f7 синий   — A..Z
-    "digits":  (0x7D, 0xCF, 0xFF),   # #7dcfff циан    — 1..0, - =
-    "punct":   (0x73, 0xDA, 0xCA),   # #73daca бирюза  — [ ] \ ; ' , . /
-    "enter":   (0xFF, 0x9E, 0x64),   # #ff9e64 оранж   — Enter, Backspace
-    "accent":  (0xF7, 0x76, 0x8E),   # #f7768e красный — Esc/ё и Caps (он же теперь Esc)
-    "mods":    (0xBB, 0x9A, 0xF7),   # #bb9af7 фиолет  — Tab, Space, Shift/Ctrl/Alt/Win/Fn
-    "nav":     (0xE0, 0xAF, 0x68),   # #e0af68 жёлтый  — правый столбец и стрелки
+    "blue":    (0x7A, 0xA2, 0xF7),   # #7aa2f7 синий     — A..Z, вся пунктуация, ё
+    "orange":  (0xFF, 0x9E, 0x64),   # #ff9e64 оранжевый — 1..0, - =
+    "sky":     (0x7D, 0xCF, 0xFF),   # #7dcfff голубой   — Win, PrtSc
+    "red":     (0xF7, 0x76, 0x8E),   # #f7768e красный   — Enter, Backspace, Del, Esc
+    "purple":  (0xBB, 0x9A, 0xF7),   # #bb9af7 фиолетовый — Tab, Space, Shift/Ctrl/Alt/Fn
+    "yellow":  (0xE0, 0xAF, 0x68),   # #e0af68 жёлтый    — Home, End, стрелки
 }
+
+# Компенсация каналов.
+# На этой плате светодиоды разной эффективности: при одинаковом байте зелёный
+# светит заметно ярче красного, синий — чуть ярче. Измерено шкалами
+# (calibrate_colors.py): жёлтый (R=G по восприятию) наступает при G ≈ 38% от R,
+# маджента — при B ≈ 85% от R. Отсюда «белый» = (255, 98, 120): если писать
+# сырые байты, любой пастельный цвет уезжает в болотно-зелёный, а фиолетовый —
+# в синий. Поэтому цвет пересчитывается так, чтобы ВОСПРИНИМАЕМОЕ отношение
+# R:G:B совпало с задуманным (и ни один канал не вылезал за 255).
+LED_GAIN = (0.384, 1.0, 0.469)   # воспринимаемая яркость канала на единицу байта
+
+
+def to_device(rgb):
+    """Задуманный цвет -> байты для прошивки с учётом дисбаланса каналов."""
+    ch = [c / k for c, k in zip(rgb, LED_GAIN)]
+    scale = 255.0 / max(ch)
+    return tuple(max(0, min(255, round(c * scale))) for c in ch)
 
 
 def zone_color(usage):
-    """Цвет клавиши по её HID usage (не по позиции в матрице)."""
+    """Цвет клавиши по её ДЕЙСТВИЮ (usage уже с учётом base-ремапа)."""
     if 0x04 <= usage <= 0x1D:                    # A..Z
-        return TOKYO["letters"]
+        return TOKYO["blue"]
     if 0x1E <= usage <= 0x27 or usage in (0x2D, 0x2E):   # 1..0, - =
-        return TOKYO["digits"]
-    if usage in (0x2F, 0x30, 0x31, 0x33, 0x34, 0x36, 0x37, 0x38):  # [ ] \ ; ' , . /
-        return TOKYO["punct"]
-    if usage in (0x28, 0x2A):                    # Enter, Backspace
-        return TOKYO["enter"]
-    if usage in (0x29, 0x39):                    # Esc/ё, Caps (стал Esc)
-        return TOKYO["accent"]
-    if usage in (0x4A, 0x4B, 0x4C, 0x4E, 0x4F,  # Home Del PgUp PgDn End
-                 0x50, 0x51, 0x52, 0x53):        # стрелки
-        return TOKYO["nav"]
-    return TOKYO["mods"]                         # Tab, Space, модификаторы, Fn
+        return TOKYO["orange"]
+    if usage in (0x2F, 0x30, 0x31, 0x33, 0x34, 0x36, 0x37, 0x38, 0x35):
+        return TOKYO["blue"]                     # [ ] \ ; ' , . / и ё
+    if usage in (0x28, 0x2A, 0x29):              # Enter, Backspace, Esc (на месте Caps)
+        return TOKYO["red"]
+    if usage == 0x4C:                            # Delete
+        return TOKYO["red"]
+    if usage in (0x4A, 0x4D):                    # Home, End
+        return TOKYO["yellow"]
+    if usage in (0x46, 0xE3):                    # PrintScreen, Win
+        return TOKYO["sky"]
+    if usage in (0x4B, 0x4E, 0x4F, 0x50, 0x51, 0x52):   # PgUp/PgDn, стрелки
+        return TOKYO["yellow"]
+    return TOKYO["purple"]                       # Tab, Space, модификаторы, Fn
+
+
+BASE_USAGE = dict(BASE_REMAPS)     # позиция -> usage на base-слое после ремапа
 
 
 def build_userpic():
     """15x6 в порядке матрицы: цвет клавиши попадает ровно на свою позицию."""
     data = bytearray(USERPIC_BYTES)
     for pos in range(LAYOUT_COLS * LAYOUT_ROWS):
-        usage = MATRIX_USAGE[pos]
+        usage = BASE_USAGE.get(pos, MATRIX_USAGE[pos])
         if not usage:
             continue                              # пустая позиция — не горит
-        r, g, b = zone_color(usage)
-        data[pos * 3:pos * 3 + 3] = bytes((r, g, b))
+        data[pos * 3:pos * 3 + 3] = bytes(to_device(zone_color(usage)))
     return bytes(data)
 
 
-# Физическая раскладка 65% — ТОЛЬКО для превью-картинки: (usage, подпись, ширина)
+# Физическая раскладка 65% — ТОЛЬКО для превью-картинки: (usage, подпись, ширина).
+# Подписи — то, что клавиша ДЕЛАЕТ после ремапа (угол = ё, Caps = Esc).
 PHYS_LAYOUT = [
-    [(0x29, "Esc", 1), (0x1E, "1", 1), (0x1F, "2", 1), (0x20, "3", 1), (0x21, "4", 1),
+    [(0x35, "ё", 1), (0x1E, "1", 1), (0x1F, "2", 1), (0x20, "3", 1), (0x21, "4", 1),
      (0x22, "5", 1), (0x23, "6", 1), (0x24, "7", 1), (0x25, "8", 1), (0x26, "9", 1),
-     (0x27, "0", 1), (0x2D, "-", 1), (0x2E, "=", 1), (0x2A, "Bksp", 2), (0x4A, "Home", 1)],
+     (0x27, "0", 1), (0x2D, "-", 1), (0x2E, "=", 1), (0x2A, "Bksp", 2), (0x4C, "Del", 1)],
     [(0x2B, "Tab", 1.5), (0x14, "Q", 1), (0x1A, "W", 1), (0x08, "E", 1), (0x15, "R", 1),
      (0x17, "T", 1), (0x1C, "Y", 1), (0x18, "U", 1), (0x0C, "I", 1), (0x12, "O", 1),
-     (0x13, "P", 1), (0x2F, "[", 1), (0x30, "]", 1), (0x31, "\\", 1.5), (0x4C, "Del", 1)],
-    [(0x39, "Caps", 1.75), (0x04, "A", 1), (0x16, "S", 1), (0x07, "D", 1), (0x09, "F", 1),
+     (0x13, "P", 1), (0x2F, "[", 1), (0x30, "]", 1), (0x31, "\\", 1.5), (0x4A, "Home", 1)],
+    [(0x29, "Esc", 1.75), (0x04, "A", 1), (0x16, "S", 1), (0x07, "D", 1), (0x09, "F", 1),
      (0x0A, "G", 1), (0x0B, "H", 1), (0x0D, "J", 1), (0x0E, "K", 1), (0x0F, "L", 1),
-     (0x33, ";", 1), (0x34, "'", 1), (0x28, "Enter", 2.25), (0x4B, "PgUp", 1)],
+     (0x33, ";", 1), (0x34, "'", 1), (0x28, "Enter", 2.25), (0x4D, "End", 1)],
     [(0xE1, "Shift", 2.25), (0x1D, "Z", 1), (0x1B, "X", 1), (0x06, "C", 1), (0x19, "V", 1),
      (0x05, "B", 1), (0x11, "N", 1), (0x10, "M", 1), (0x36, ",", 1), (0x37, ".", 1),
-     (0x38, "/", 1), (0xE6, "Shift", 1.75), (0x50, "Up", 1), (0x4E, "PgDn", 1)],
+     (0x38, "/", 1), (0xE6, "Shift", 1.75), (0x52, "Up", 1), (0x46, "PrtSc", 1)],
     [(0xE0, "Ctrl", 1.25), (0xE3, "Win", 1.25), (0xE2, "Alt", 1.25), (0x2C, "Space", 5.5),
      (0xE5, "Alt", 1.25), (None, "Fn", 1.25), (0xE4, "Ctrl", 1.25),
-     (0x53, "Left", 1), (0x51, "Down", 1), (0x52, "Right", 1)],
+     (0x50, "Left", 1), (0x51, "Down", 1), (0x4F, "Right", 1)],
 ]
 
 BG = (0x1A, 0x1B, 0x26)
+LEGEND = [
+    ((0x35,), "буквы, пунктуация, ё"),
+    ((0x1E,), "цифры  - ="),
+    ((0x28,), "Enter, Bksp, Del, Esc"),
+    ((0x4A,), "Home, End, стрелки"),
+    ((0xE3,), "Win, PrtSc"),
+    ((0x2B,), "Tab, Space, моды, Fn"),
+]
 
 
 def write_pngs(directory):
-    """userpic-tokyonight.png (15x6, ровно данные) + keyboard-tokyonight.png (превью)."""
+    """userpic-tokyonight.png (15x6, ровно данные) + keyboard-tokyonight.png (превью).
+
+    В userpic-файл идут БАЙТЫ ДЛЯ ПРОШИВКИ (с компенсацией каналов), а превью
+    рисуется задуманными цветами — так, как это должно выглядеть на клавиатуре.
+    """
     os.makedirs(directory, exist_ok=True)
     data = build_userpic()
 
@@ -179,23 +215,33 @@ def write_pngs(directory):
     u = 44                                       # px на 1u
     pad, gap = 14, 4
     cols = max(sum(w for _, _, w in row) for row in PHYS_LAYOUT)
-    canvas = Image.new("RGB", (int(cols * u) + pad * 2 + 8,
-                               int(len(PHYS_LAYOUT) * u) + pad * 2), BG)
+    width = int(cols * u) + pad * 2 + 8
+    board_h = len(PHYS_LAYOUT) * u
+    title_h = 34
+    legend_row_h = 26
+    legend_h = legend_row_h * ((len(LEGEND) + 2) // 3) + 8
+    canvas = Image.new("RGB", (width, int(pad * 2 + board_h + title_h + legend_h)), BG)
     draw = ImageDraw.Draw(canvas)
     font = None
+    font_title = None
     for name in ("segoeui.ttf", "arial.ttf", "DejaVuSans.ttf"):
         try:
             font = ImageFont.truetype(name, 12)
+            font_title = ImageFont.truetype(name, 17)
             break
         except Exception:
             continue
     if font is None:
         font = ImageFont.load_default()
+        font_title = font
+    draw.text((pad, pad - 2), "AK680 MAX — Caps -> Esc, Esc -> ё, PrtSc <-> End",
+              fill=(0xC0, 0xCA, 0xF5), font=font_title)
+    top = pad + title_h
     for row_i, row in enumerate(PHYS_LAYOUT):
         x = 0.0
         for usage, label, w in row:
             x0 = pad + x * u
-            y0 = pad + row_i * u
+            y0 = top + row_i * u
             color = zone_color(usage or 0xE2)
             draw.rounded_rectangle([x0 + gap, y0 + gap,
                                     x0 + w * u - gap, y0 + u - gap],
@@ -205,6 +251,15 @@ def write_pngs(directory):
                 draw.text((x0 + w * u / 2 - tw / 2, y0 + u / 2 - 7), label,
                           fill=BG, font=font)
             x += w
+    # легенда: что какой цвет значит
+    lw = (width - pad * 2) // 3
+    ly = top + board_h + 8
+    for i, (usages, text) in enumerate(LEGEND):
+        cx = pad + (i % 3) * lw
+        cy = ly + (i // 3) * legend_row_h
+        draw.rounded_rectangle([cx, cy, cx + 16, cy + 16], radius=4,
+                               fill=zone_color(usages[0]))
+        draw.text((cx + 22, cy + 1), text, fill=(0xC0, 0xCA, 0xF5), font=font)
     canvas.save(os.path.join(directory, "keyboard-tokyonight.png"))
     return directory
 
