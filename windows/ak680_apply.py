@@ -111,16 +111,16 @@ MATRIX_USAGE = [
 # PREVIEW (пастельной) — картинка должна выглядеть как TokyoNight.
 TOKYO = {
     "blue":    (0x7A, 0xA2, 0xF7),   # синий      — A..Z, вся пунктуация, `
-    "orange":  (0xFF, 0x9E, 0x00),   # оранжевый  — 1..0, - =
-    "sky":     (0x4F, 0xC3, 0xFF),   # голубой    — Win, PrtSc
-    "red":     (0xFF, 0x00, 0x18),   # красный    — Enter, Backspace, Del, Esc
+    "orange":  (0xFF, 0x80, 0x00),   # оранжевый  — 1..0, - =
+    "sky":     (0x4F, 0xC3, 0xFF),   # голубой    — PrtSc
+    "red":     (0xFF, 0x00, 0x18),   # красный    — Enter, Backspace, Del, Esc, Win
     "purple":  (0xCC, 0x33, 0xFF),   # фиолетовый — Tab, Space, Shift/Ctrl/Alt/Fn
     "yellow":  (0xFF, 0xDD, 0x00),   # жёлтый     — Home, End, стрелки
 }
 
-# Яркость зоны на железе (1.0 = как есть). Жёлтый слегка приглушён: на полной
+# Яркость зоны на железе (1.0 = как есть). Жёлтый приглушён: на полной
 # яркости он бьёт по глазам.
-LED_LEVEL = {"yellow": 0.8}
+LED_LEVEL = {"yellow": 0.65}
 
 # Цвета ДЛЯ ПРЕВЬЮ (пастельный TokyoNight) — только картинка, в прошивку не идут.
 PREVIEW = {
@@ -160,11 +160,11 @@ def zone_name(usage):
         return "blue"                            # [ ] \ ; ' , . / и `
     if usage in (0x28, 0x2A, 0x29):              # Enter, Backspace, Esc (на месте Caps)
         return "red"
-    if usage == 0x4C:                            # Delete
+    if usage in (0x4C, 0xE3):                    # Delete, Win
         return "red"
     if usage in (0x4A, 0x4D):                    # Home, End
         return "yellow"
-    if usage in (0x46, 0xE3):                    # PrintScreen, Win
+    if usage == 0x46:                            # PrintScreen
         return "sky"
     if usage in (0x4B, 0x4E, 0x4F, 0x50, 0x51, 0x52):   # PgUp/PgDn, стрелки
         return "yellow"
@@ -220,9 +220,9 @@ BG = (0x1A, 0x1B, 0x26)
 LEGEND = [
     ((0x35,), "буквы, пунктуация, `"),
     ((0x1E,), "цифры  - ="),
-    ((0x28,), "Enter, Bksp, Del, Esc"),
+    ((0x28,), "Enter, Bksp, Del, Esc, Win"),
     ((0x4A,), "Home, End, стрелки"),
-    ((0xE3,), "Win, PrtSc"),
+    ((0x46,), "PrtSc"),
     ((0x2B,), "Tab, Space, моды, Fn"),
 ]
 
