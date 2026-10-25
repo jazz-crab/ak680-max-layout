@@ -229,10 +229,10 @@ PHYS_LAYOUT = [
 
 BG = (0x1A, 0x1B, 0x26)
 LEGEND = [
-    ((0x35,), "буквы, пунктуация, `"),
-    ((0x1E,), "цифры, Space, стрелки"),
+    ((0x35,), "letters, punctuation"),
+    ((0x1E,), "digits, Space, arrows"),
     ((0x28,), "Enter, Bksp, Del, Esc, Win, PrtSc, Fn"),
-    ((0x2B,), "Home, End, Tab, моды"),
+    ((0x2B,), "Home, End, Tab, modifiers"),
 ]
 
 
