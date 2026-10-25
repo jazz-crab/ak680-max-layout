@@ -112,7 +112,7 @@ MATRIX_USAGE = [
 TOKYO = {
     "blue":    (0x7A, 0xA2, 0xF7),   # синий      — A..Z, вся пунктуация, `
     "orange":  (0xFF, 0x4C, 0x00),   # красно-оранжевый, чуть светлее выбранного — 1..0, - =, Space, стрелки
-    "red":     (0xFF, 0x00, 0x00),   # красный    — Enter, Backspace, Del, Esc, Win, PrtSc, Fn
+    "red":     (0xFF, 0x00, 0x24),   # красный, чуть мягче и с каплей синего — Enter, Backspace, Del, Esc, Win, PrtSc, Fn
     "purple":  (0xCC, 0x33, 0xE8),   # фиолетовый, чуть краснее — Tab, Home/End, Shift/Ctrl/Alt
 }
 
@@ -121,7 +121,9 @@ TOKYO = {
 # raw (140, 14, 0). На полной яркости он вымывался в беж/розовый. Попытка
 # «бледнее» через синий канал дала розовый, поэтому чуть светлее сделано
 # только яркостью: raw (148, 17, 0), B по-прежнему 0.
-LED_LEVEL = {"orange": 0.58}
+# Красный тоже чуть приглушён (0.88) и получил каплю синего — юзер попросил
+# «чуть менее ярким, чуть розовато-синего»; raw (224, 0, 26).
+LED_LEVEL = {"orange": 0.58, "red": 0.88}
 
 # Цвета ДЛЯ ПРЕВЬЮ (пастельный TokyoNight) — только картинка, в прошивку не идут.
 PREVIEW = {
@@ -236,6 +238,23 @@ LEGEND = [
 ]
 
 
+def load_font(filename, size):
+    """Шрифт для превью: ищем рядом со скриптом, в assets/fonts, затем в системе."""
+    here = os.path.dirname(os.path.abspath(__file__))
+    candidates = [
+        os.path.join(here, "fonts", filename),
+        os.path.join(here, filename),
+        os.path.join(os.path.dirname(here), "assets", "fonts", filename),
+    ]
+    candidates += [filename, "consola.ttf", "segoeui.ttf", "arial.ttf", "DejaVuSans.ttf"]
+    for name in candidates:
+        try:
+            return ImageFont.truetype(name, size)
+        except Exception:
+            continue
+    return ImageFont.load_default()
+
+
 def write_pngs(directory):
     """userpic-tokyonight.png (15x6, ровно данные) + keyboard-tokyonight.png (превью).
 
@@ -258,21 +277,12 @@ def write_pngs(directory):
     board_h = len(PHYS_LAYOUT) * u
     title_h = 34
     legend_row_h = 26
-    legend_h = legend_row_h * ((len(LEGEND) + 2) // 3) + 8
+    legend_cols = 2                             # JetBrains Mono шире — по две колонки
+    legend_h = legend_row_h * ((len(LEGEND) + legend_cols - 1) // legend_cols) + 8
     canvas = Image.new("RGB", (width, int(pad * 2 + board_h + title_h + legend_h)), BG)
     draw = ImageDraw.Draw(canvas)
-    font = None
-    font_title = None
-    for name in ("segoeui.ttf", "arial.ttf", "DejaVuSans.ttf"):
-        try:
-            font = ImageFont.truetype(name, 12)
-            font_title = ImageFont.truetype(name, 17)
-            break
-        except Exception:
-            continue
-    if font is None:
-        font = ImageFont.load_default()
-        font_title = font
+    font = load_font("JetBrainsMono-Regular.ttf", 12)
+    font_title = load_font("JetBrainsMono-Bold.ttf", 17)
     draw.text((pad, pad - 2), "AJAZZ AK680 MAX RGB",
               fill=(0xC0, 0xCA, 0xF5), font=font_title)
     top = pad + title_h
@@ -291,11 +301,11 @@ def write_pngs(directory):
                           fill=BG, font=font)
             x += w
     # легенда: что какой цвет значит
-    lw = (width - pad * 2) // 3
+    lw = (width - pad * 2) // legend_cols
     ly = top + board_h + 8
     for i, (usages, text) in enumerate(LEGEND):
-        cx = pad + (i % 3) * lw
-        cy = ly + (i // 3) * legend_row_h
+        cx = pad + (i % legend_cols) * lw
+        cy = ly + (i // legend_cols) * legend_row_h
         draw.rounded_rectangle([cx, cy, cx + 16, cy + 16], radius=4,
                                fill=preview_color(usages[0]))
         draw.text((cx + 22, cy + 1), text, fill=(0xC0, 0xCA, 0xF5), font=font)
