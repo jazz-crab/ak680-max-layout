@@ -16,21 +16,26 @@ usage page 0xFFFF / usage 0x02). Драйвер iot_driver для этого н�
   страничные — без echo (просто 64 байта данных).
 
 Что делает (ровно как README.md репозитория):
-  1. base-layer ремапы: 1->Esc, 85->Delete, 86->Home, 87->PrintScr, 88->End
-  2. Fn-слой: Fn+T -> ` (grave)
+  1. base-layer ремапы: 3 (Caps) -> Esc, 1 (физический Esc) -> ` (на RU это ё),
+     85 -> Delete, 86 -> Home, 87 -> PrintScr, 88 -> End
+  2. Fn-слой: Fn+T -> ` (grave) — запасной способ напечатать ё
   3. Hall Effect: активация 1.0mm (raw 100), отпускание 1.5mm (raw 150), все 90 позиций
-  4. подсветка: userpic TokyoNight в слот 0 + режим LED 13 (UserPicture)
+  4. подсветка: userpic TokyoNight, раскрашенный ПО КЛАВИШАМ (через таблицу матрицы),
+     в слот 0 + режим LED 13
 
 Режимы:
   --read-only   только прочитать и напечатать текущее состояние (+ сохранить бэкап)
-  --verify      прочитать и сравнить с целевым состоянием
+  --verify      прочитать и сравнить с целевым состоянием (включая подсветку)
   --yes         реально писать (без него — dry-run)
   --no-userpic  не трогать подсветку
+  --image FILE  залить свою картинку вместо схемы TokyoNight (15x6, порядок матрицы)
+  --write-png DIR  сохранить userpic-tokyonight.png (15x6, данные) и
+                   keyboard-tokyonight.png (человеческое превью физической раскладки)
 """
 import argparse, json, os, sys, time
 
 import hid
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 
 VID, PID = 0x3151, 0x502D
 REPORT_SIZE = 65
@@ -56,17 +61,157 @@ MAG_PRESS, MAG_LIFT, MAG_MODE = 0x00, 0x01, 0x07
 KEY_COUNT = 90           # matrix extent этой платы (device_matrices.json: последняя занятая позиция 89)
 LAYOUT_COLS = 15         # USERPIC: 6 строк, колонок = 89/6+1
 LAYOUT_ROWS = 6
-USERPIC_BYTES = 126 * 3
+USERPIC_BYTES = 126 * 3  # слот userpic: 21x6 максимум, у этой платы занято 15x6
 
-KEY = {"Escape": 0x29, "Delete": 0x4C, "Home": 0x4A, "PrintScr": 0x46, "End": 0x4D, "grave": 0x35}
+KEY = {"Escape": 0x29, "Delete": 0x4C, "Home": 0x4A, "PrintScr": 0x46, "End": 0x4D,
+       "grave": 0x35}
 
-BASE_REMAPS = [(1, KEY["Escape"]), (85, KEY["Delete"]), (86, KEY["Home"]),
-               (87, KEY["PrintScr"]), (88, KEY["End"])]
-FN_REMAPS = [(32, KEY["grave"])]          # Fn + физический T (index 32)
+# base-слой: позиция матрицы -> HID usage.
+#   1  = физический Esc/угол -> ` (в русской раскладке это ё)
+#   3  = физический Caps     -> Esc (CapsLock не нужен)
+#   85..88 = правый столбец  -> Delete / Home / PrintScreen / End
+BASE_REMAPS = [(3, KEY["Escape"]), (1, KEY["grave"]), (85, KEY["Delete"]),
+               (86, KEY["Home"]), (87, KEY["PrintScr"]), (88, KEY["End"])]
+FN_REMAPS = [(32, KEY["grave"])]          # Fn + физический T (index 32) -> ё
 ACTUATION_MM, RELEASE_MM = 1.0, 1.5
 USERPIC_SLOT = 0
 
 
+# --------------------------------------------------------------------------- #
+# подсветка: userpic — это НЕ фотография клавиатуры
+# --------------------------------------------------------------------------- #
+# Прошивка раскладывает userpic по позициям электрической матрицы: байты
+# [3*i : 3*i+3] — цвет клавиши на позиции i (картинка 6 строк, x = i // 6,
+# y = i % 6, то есть column-major). Ряды матрицы — не физические ряды клавиатуры.
+#
+# Поэтому нарисованная «как клавиатура» картинка 15x6 попадает на соседние
+# клавиши: в старой схеме Enter, Backspace, `\` и стрелки получали цвет правого
+# столбца, а сам правый столбец (позиции 85..89) оказывался чёрным.
+#
+# Ниже — заводские HID usage по позициям: data/device_matrices.json,
+# 12625:20525:2255 / lэйаут Common68_K80X68 (0 = клавиши нет).
+MATRIX_USAGE = [
+    0, 41, 43, 57, 225, 224, 0, 30, 20, 4,
+    0, 0, 0, 31, 26, 22, 29, 227, 0, 32,
+    8, 7, 27, 226, 0, 33, 21, 9, 6, 0,
+    0, 34, 23, 10, 25, 0, 0, 35, 28, 11,
+    5, 44, 0, 36, 24, 13, 17, 0, 0, 37,
+    12, 14, 16, 0, 0, 38, 18, 15, 54, 230,
+    0, 39, 19, 51, 55, 0, 0, 45, 47, 52,
+    56, 228, 0, 46, 48, 0, 229, 80, 0, 42,
+    49, 40, 82, 81, 0, 74, 76, 75, 78, 79,
+] + [0] * (LAYOUT_COLS * LAYOUT_ROWS - 90)
+
+# TokyoNight (night): зоны
+TOKYO = {
+    "letters": (0x7A, 0xA2, 0xF7),   # #7aa2f7 синий   — A..Z
+    "digits":  (0x7D, 0xCF, 0xFF),   # #7dcfff циан    — 1..0, - =
+    "punct":   (0x73, 0xDA, 0xCA),   # #73daca бирюза  — [ ] \ ; ' , . /
+    "enter":   (0xFF, 0x9E, 0x64),   # #ff9e64 оранж   — Enter, Backspace
+    "accent":  (0xF7, 0x76, 0x8E),   # #f7768e красный — Esc/ё и Caps (он же теперь Esc)
+    "mods":    (0xBB, 0x9A, 0xF7),   # #bb9af7 фиолет  — Tab, Space, Shift/Ctrl/Alt/Win/Fn
+    "nav":     (0xE0, 0xAF, 0x68),   # #e0af68 жёлтый  — правый столбец и стрелки
+}
+
+
+def zone_color(usage):
+    """Цвет клавиши по её HID usage (не по позиции в матрице)."""
+    if 0x04 <= usage <= 0x1D:                    # A..Z
+        return TOKYO["letters"]
+    if 0x1E <= usage <= 0x27 or usage in (0x2D, 0x2E):   # 1..0, - =
+        return TOKYO["digits"]
+    if usage in (0x2F, 0x30, 0x31, 0x33, 0x34, 0x36, 0x37, 0x38):  # [ ] \ ; ' , . /
+        return TOKYO["punct"]
+    if usage in (0x28, 0x2A):                    # Enter, Backspace
+        return TOKYO["enter"]
+    if usage in (0x29, 0x39):                    # Esc/ё, Caps (стал Esc)
+        return TOKYO["accent"]
+    if usage in (0x4A, 0x4B, 0x4C, 0x4E, 0x4F,  # Home Del PgUp PgDn End
+                 0x50, 0x51, 0x52, 0x53):        # стрелки
+        return TOKYO["nav"]
+    return TOKYO["mods"]                         # Tab, Space, модификаторы, Fn
+
+
+def build_userpic():
+    """15x6 в порядке матрицы: цвет клавиши попадает ровно на свою позицию."""
+    data = bytearray(USERPIC_BYTES)
+    for pos in range(LAYOUT_COLS * LAYOUT_ROWS):
+        usage = MATRIX_USAGE[pos]
+        if not usage:
+            continue                              # пустая позиция — не горит
+        r, g, b = zone_color(usage)
+        data[pos * 3:pos * 3 + 3] = bytes((r, g, b))
+    return bytes(data)
+
+
+# Физическая раскладка 65% — ТОЛЬКО для превью-картинки: (usage, подпись, ширина)
+PHYS_LAYOUT = [
+    [(0x29, "Esc", 1), (0x1E, "1", 1), (0x1F, "2", 1), (0x20, "3", 1), (0x21, "4", 1),
+     (0x22, "5", 1), (0x23, "6", 1), (0x24, "7", 1), (0x25, "8", 1), (0x26, "9", 1),
+     (0x27, "0", 1), (0x2D, "-", 1), (0x2E, "=", 1), (0x2A, "Bksp", 2), (0x4A, "Home", 1)],
+    [(0x2B, "Tab", 1.5), (0x14, "Q", 1), (0x1A, "W", 1), (0x08, "E", 1), (0x15, "R", 1),
+     (0x17, "T", 1), (0x1C, "Y", 1), (0x18, "U", 1), (0x0C, "I", 1), (0x12, "O", 1),
+     (0x13, "P", 1), (0x2F, "[", 1), (0x30, "]", 1), (0x31, "\\", 1.5), (0x4C, "Del", 1)],
+    [(0x39, "Caps", 1.75), (0x04, "A", 1), (0x16, "S", 1), (0x07, "D", 1), (0x09, "F", 1),
+     (0x0A, "G", 1), (0x0B, "H", 1), (0x0D, "J", 1), (0x0E, "K", 1), (0x0F, "L", 1),
+     (0x33, ";", 1), (0x34, "'", 1), (0x28, "Enter", 2.25), (0x4B, "PgUp", 1)],
+    [(0xE1, "Shift", 2.25), (0x1D, "Z", 1), (0x1B, "X", 1), (0x06, "C", 1), (0x19, "V", 1),
+     (0x05, "B", 1), (0x11, "N", 1), (0x10, "M", 1), (0x36, ",", 1), (0x37, ".", 1),
+     (0x38, "/", 1), (0xE6, "Shift", 1.75), (0x50, "Up", 1), (0x4E, "PgDn", 1)],
+    [(0xE0, "Ctrl", 1.25), (0xE3, "Win", 1.25), (0xE2, "Alt", 1.25), (0x2C, "Space", 5.5),
+     (0xE5, "Alt", 1.25), (None, "Fn", 1.25), (0xE4, "Ctrl", 1.25),
+     (0x53, "Left", 1), (0x51, "Down", 1), (0x52, "Right", 1)],
+]
+
+BG = (0x1A, 0x1B, 0x26)
+
+
+def write_pngs(directory):
+    """userpic-tokyonight.png (15x6, ровно данные) + keyboard-tokyonight.png (превью)."""
+    os.makedirs(directory, exist_ok=True)
+    data = build_userpic()
+
+    img = Image.new("RGB", (LAYOUT_COLS, LAYOUT_ROWS))
+    for pos in range(LAYOUT_COLS * LAYOUT_ROWS):
+        img.putpixel((pos // LAYOUT_ROWS, pos % LAYOUT_ROWS), tuple(data[pos * 3:pos * 3 + 3]))
+    img.save(os.path.join(directory, "userpic-tokyonight.png"))
+
+    u = 44                                       # px на 1u
+    pad, gap = 14, 4
+    cols = max(sum(w for _, _, w in row) for row in PHYS_LAYOUT)
+    canvas = Image.new("RGB", (int(cols * u) + pad * 2 + 8,
+                               int(len(PHYS_LAYOUT) * u) + pad * 2), BG)
+    draw = ImageDraw.Draw(canvas)
+    font = None
+    for name in ("segoeui.ttf", "arial.ttf", "DejaVuSans.ttf"):
+        try:
+            font = ImageFont.truetype(name, 12)
+            break
+        except Exception:
+            continue
+    if font is None:
+        font = ImageFont.load_default()
+    for row_i, row in enumerate(PHYS_LAYOUT):
+        x = 0.0
+        for usage, label, w in row:
+            x0 = pad + x * u
+            y0 = pad + row_i * u
+            color = zone_color(usage or 0xE2)
+            draw.rounded_rectangle([x0 + gap, y0 + gap,
+                                    x0 + w * u - gap, y0 + u - gap],
+                                   radius=6, fill=color)
+            if label:
+                tw = draw.textlength(label, font=font)
+                draw.text((x0 + w * u / 2 - tw / 2, y0 + u / 2 - 7), label,
+                          fill=BG, font=font)
+            x += w
+    canvas.save(os.path.join(directory, "keyboard-tokyonight.png"))
+    return directory
+
+
+# --------------------------------------------------------------------------- #
+# протокол
+# --------------------------------------------------------------------------- #
 def build(cmd, data=b"", bit8=False):
     buf = bytearray(REPORT_SIZE)
     buf[0] = 0
@@ -253,8 +398,9 @@ class Keyboard:
             self.send(CMD_SET_USERPIC, payload, delay=0.012)
 
     def set_led_userpic(self, slot):
-        # set_led_with_option(mode=13, brightness=4, speed=0, r=0,g=200,b=200, dazzle=False, slot)
-        data = bytes([13, 4 - 0, 4, (slot << 4) & 0xF0, 0, 200, 200])
+        # [mode, инверт. скорость, яркость, option, r, g, b]; в режиме 13 цвет
+        # (0,200,200) — это цвет вспышки при нажатии, его задаёт прошивка.
+        data = bytes([13, 4, 4, (slot << 4) & 0xF0, 0, 200, 200])
         self.send(CMD_SET_LEDPARAM, data, bit8=True)
 
 
@@ -299,17 +445,33 @@ def print_state(st):
         print(f"  отпускание: raw={sorted(set(st['release_raw']))} ({sorted(set(st['release_raw']))[0] / PRECISION}мм)")
 
 
+def target_userpic(image=None):
+    if not image:
+        return build_userpic()
+    img = Image.open(image).convert("RGB").resize((LAYOUT_COLS, LAYOUT_ROWS), Image.NEAREST)
+    data = bytearray(USERPIC_BYTES)
+    for pos in range(LAYOUT_COLS * LAYOUT_ROWS):
+        x, y = pos // LAYOUT_ROWS, pos % LAYOUT_ROWS     # column-major, 6 строк
+        data[pos * 3:pos * 3 + 3] = bytes(img.getpixel((x, y)))
+    return bytes(data)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--read-only", action="store_true")
     ap.add_argument("--verify", action="store_true")
     ap.add_argument("--yes", action="store_true", help="реально писать")
     ap.add_argument("--no-userpic", action="store_true")
-    here = os.path.dirname(os.path.abspath(__file__))
-    ap.add_argument("--image", default=os.path.normpath(os.path.join(here, "..", "assets", "userpic-tokyonight.png")))
-    ap.add_argument("--backup-dir", default=os.getcwd(),
-                    help="куда класть backup-<ts>.json (по умолчанию текущий каталог; в репо не коммитить)")
+    ap.add_argument("--image", default=None,
+                    help="своя картинка 15x6 в порядке матрицы (по умолчанию — схема TokyoNight)")
+    ap.add_argument("--write-png", default=None, metavar="DIR",
+                    help="сохранить userpic-tokyonight.png (данные) и keyboard-tokyonight.png (превью)")
+    ap.add_argument("--backup-dir", default=os.path.dirname(os.path.abspath(__file__)))
     args = ap.parse_args()
+
+    if args.write_png:
+        write_pngs(args.write_png)
+        print(f"PNG записаны в {args.write_png}")
 
     kb = Keyboard()
     profile = kb.active_profile()
@@ -330,13 +492,16 @@ def main():
 
     target_act = round(ACTUATION_MM * PRECISION)
     target_rel = round(RELEASE_MM * PRECISION)
+    want_pic = None if args.no_userpic else target_userpic(args.image)
 
     print("\nПлан:")
-    print(f"  base layer: " + ", ".join(f"{i}→0x{c:02X}" for i, c in BASE_REMAPS))
-    print(f"  Fn(Win):    " + ", ".join(f"{i}→0x{c:02X}" for i, c in FN_REMAPS))
+    print("  base layer: " + ", ".join(f"{i}→0x{c:02X}" for i, c in BASE_REMAPS))
+    print("  Fn(Win):    " + ", ".join(f"{i}→0x{c:02X}" for i, c in FN_REMAPS))
     print(f"  активация {ACTUATION_MM}мм (raw {target_act}) / отпускание {RELEASE_MM}мм (raw {target_rel}), {KEY_COUNT} позиций")
-    if not args.no_userpic:
-        print(f"  подсветка: userpic слот {USERPIC_SLOT} из {args.image} + режим LED 13")
+    if want_pic:
+        total = sum(1 for i in range(0, len(want_pic), 3) if want_pic[i:i + 3] != b"\x00\x00\x00")
+        src = args.image if args.image else "схема TokyoNight по клавишам"
+        print(f"  подсветка: {src} → userpic слот {USERPIC_SLOT} ({total} клавиш) + режим LED 13")
 
     if args.verify:
         ok = True
@@ -356,6 +521,16 @@ def main():
             good = arr is not None and all(v == want for v in arr)
             ok &= good
             print(f"  {name}: {sorted(set(arr or []))} ожидалось [{want}]: {'OK' if good else 'НЕ СОВПАЛО'}")
+        if want_pic:
+            got_pic = kb.get_userpic(USERPIC_SLOT)
+            good = got_pic == want_pic
+            ok &= good
+            n_ok = sum(1 for i in range(0, len(want_pic), 3) if want_pic[i:i + 3] != b"\x00\x00\x00")
+            print(f"  подсветка (userpic слот {USERPIC_SLOT}, {n_ok} клавиш): {'OK' if good else 'НЕ СОВПАЛО'}")
+            led = st["led"] or ""
+            good = led[2:4] == "0d"          # led[0] = эхо команды 0x87, дальше режим
+            ok &= good
+            print(f"  режим LED = 13 (UserPicture): {'OK' if good else 'НЕ СОВПАЛО (' + led[:4] + ')'}")
         kb.close()
         return 0 if ok else 1
 
@@ -381,17 +556,11 @@ def main():
     kb.set_magnetism(MAG_LIFT, [target_rel] * KEY_COUNT)
     print(f"  отпускание {RELEASE_MM}мм (raw {target_rel})")
 
-    if not args.no_userpic:
-        print("== 4/4. Подсветка (userpic + режим 13) ==")
-        img = Image.open(args.image).convert("RGB")
-        small = img.resize((LAYOUT_COLS, LAYOUT_ROWS), Image.NEAREST)
-        data = bytearray()
-        for pos in range(LAYOUT_COLS * LAYOUT_ROWS):
-            x, y = pos // LAYOUT_ROWS, pos % LAYOUT_ROWS     # col-major, 6 строк
-            data += bytes(small.getpixel((x, y)))
-        kb.set_userpic(USERPIC_SLOT, bytes(data))
+    if want_pic:
+        print("== 4/4. Подсветка (userpic по клавишам + режим 13) ==")
+        kb.set_userpic(USERPIC_SLOT, want_pic)
         kb.set_led_userpic(USERPIC_SLOT)
-        print(f"  {args.image} ({img.size[0]}x{img.size[1]}) -> {LAYOUT_COLS}x{LAYOUT_ROWS}, слот {USERPIC_SLOT}, режим 13")
+        print(f"  15x6, слот {USERPIC_SLOT}, режим 13")
 
     print("\n== Проверка (чтение с устройства) ==")
     kb2 = Keyboard()
@@ -405,6 +574,9 @@ def main():
         print(f"  Fn[{i}] = 0x{fn[i][2]:02X} (ожидалось 0x{c:02X}) {'OK' if fn[i][2] == c else 'НЕ СОВПАЛО'}")
     print(f"  активация: {sorted(set(st2['actuation_raw'] or []))} (ожидалось [{target_act}])")
     print(f"  отпускание: {sorted(set(st2['release_raw'] or []))} (ожидалось [{target_rel}])")
+    if want_pic:
+        got_pic = kb2.get_userpic(USERPIC_SLOT)
+        print(f"  подсветка: {'OK (побайтово совпало)' if got_pic == want_pic else 'НЕ СОВПАЛО'}")
     kb2.close()
     kb.close()
     print("\nГотово.")
