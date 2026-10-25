@@ -103,21 +103,33 @@ MATRIX_USAGE = [
     49, 40, 82, 81, 0, 74, 76, 75, 78, 79,
 ] + [0] * (LAYOUT_COLS * LAYOUT_ROWS - 90)
 
-# TokyoNight (night): зоны. Цвет — по ДЕЙСТВИЮ клавиши (после ремапа), а не по
-# заводскому usage: иначе Del и Home получали бы один и тот же «nav».
-#
-# ВАЖНО: это НЕ hex-коды TokyoNight, а СОЧНЫЕ (=насыщенные) варианты тех же
-# зон. Пастельные #ff9e64 / #e0af68 / #f7768e / #bb9af7 на подсветке вымываются:
-# у тёплых цветов много синего в составе (он яркий → добавляет белизны), у
-# фиолетового синий в максимуме. Поэтому у оранжевого/жёлтого/красного B = 0,
-# фиолетовый сдвинут в красную сторону.
+# Цвета ДЛЯ КЛАВИАТУРЫ. Это НЕ hex-коды TokyoNight, а СОЧНЫЕ (=насыщенные)
+# варианты тех же зон: пастельные #ff9e64 / #e0af68 / #f7768e / #bb9af7 на
+# подсветке вымываются (у тёплых много синего — он яркий и добавляет белизны,
+# у фиолетового синий в максимуме). Поэтому у оранжевого/жёлтого/красного B = 0,
+# фиолетовый сдвинут в красную сторону. Превью рисуется отдельной палитрой
+# PREVIEW (пастельной) — картинка должна выглядеть как TokyoNight.
 TOKYO = {
     "blue":    (0x7A, 0xA2, 0xF7),   # синий      — A..Z, вся пунктуация, `
     "orange":  (0xFF, 0x9E, 0x00),   # оранжевый  — 1..0, - =
     "sky":     (0x4F, 0xC3, 0xFF),   # голубой    — Win, PrtSc
-    "red":     (0xFF, 0x20, 0x30),   # красный    — Enter, Backspace, Del, Esc
-    "purple":  (0xD9, 0x6B, 0xFF),   # фиолетовый — Tab, Space, Shift/Ctrl/Alt/Fn
+    "red":     (0xFF, 0x00, 0x18),   # красный    — Enter, Backspace, Del, Esc
+    "purple":  (0xCC, 0x33, 0xFF),   # фиолетовый — Tab, Space, Shift/Ctrl/Alt/Fn
     "yellow":  (0xFF, 0xDD, 0x00),   # жёлтый     — Home, End, стрелки
+}
+
+# Яркость зоны на железе (1.0 = как есть). Жёлтый слегка приглушён: на полной
+# яркости он бьёт по глазам.
+LED_LEVEL = {"yellow": 0.8}
+
+# Цвета ДЛЯ ПРЕВЬЮ (пастельный TokyoNight) — только картинка, в прошивку не идут.
+PREVIEW = {
+    "blue":    (0x7A, 0xA2, 0xF7),
+    "orange":  (0xFF, 0x9E, 0x64),
+    "sky":     (0x7D, 0xCF, 0xFF),
+    "red":     (0xF7, 0x76, 0x8E),
+    "purple":  (0xBB, 0x9A, 0xF7),
+    "yellow":  (0xE0, 0xAF, 0x68),
 }
 
 # Компенсация каналов.
@@ -131,32 +143,42 @@ TOKYO = {
 LED_GAIN = (0.384, 1.0, 0.469)   # воспринимаемая яркость канала на единицу байта
 
 
-def to_device(rgb):
+def to_device(rgb, level=1.0):
     """Задуманный цвет -> байты для прошивки с учётом дисбаланса каналов."""
     ch = [c / k for c, k in zip(rgb, LED_GAIN)]
-    scale = 255.0 / max(ch)
+    scale = 255.0 * level / max(ch)
     return tuple(max(0, min(255, round(c * scale))) for c in ch)
 
 
-def zone_color(usage):
-    """Цвет клавиши по её ДЕЙСТВИЮ (usage уже с учётом base-ремапа)."""
+def zone_name(usage):
+    """Зона клавиши по её ДЕЙСТВИЮ (usage уже с учётом base-ремапа)."""
     if 0x04 <= usage <= 0x1D:                    # A..Z
-        return TOKYO["blue"]
+        return "blue"
     if 0x1E <= usage <= 0x27 or usage in (0x2D, 0x2E):   # 1..0, - =
-        return TOKYO["orange"]
+        return "orange"
     if usage in (0x2F, 0x30, 0x31, 0x33, 0x34, 0x36, 0x37, 0x38, 0x35):
-        return TOKYO["blue"]                     # [ ] \ ; ' , . / и ё
+        return "blue"                            # [ ] \ ; ' , . / и `
     if usage in (0x28, 0x2A, 0x29):              # Enter, Backspace, Esc (на месте Caps)
-        return TOKYO["red"]
+        return "red"
     if usage == 0x4C:                            # Delete
-        return TOKYO["red"]
+        return "red"
     if usage in (0x4A, 0x4D):                    # Home, End
-        return TOKYO["yellow"]
+        return "yellow"
     if usage in (0x46, 0xE3):                    # PrintScreen, Win
-        return TOKYO["sky"]
+        return "sky"
     if usage in (0x4B, 0x4E, 0x4F, 0x50, 0x51, 0x52):   # PgUp/PgDn, стрелки
-        return TOKYO["yellow"]
-    return TOKYO["purple"]                       # Tab, Space, модификаторы, Fn
+        return "yellow"
+    return "purple"                              # Tab, Space, модификаторы, Fn
+
+
+def zone_color(usage):
+    """Цвет клавиши на клавиатуре (сочный)."""
+    return TOKYO[zone_name(usage)]
+
+
+def preview_color(usage):
+    """Цвет той же зоны на картинке (пастельный TokyoNight)."""
+    return PREVIEW[zone_name(usage)]
 
 
 BASE_USAGE = dict(BASE_REMAPS)     # позиция -> usage на base-слое после ремапа
@@ -169,7 +191,8 @@ def build_userpic():
         usage = BASE_USAGE.get(pos, MATRIX_USAGE[pos])
         if not usage:
             continue                              # пустая позиция — не горит
-        data[pos * 3:pos * 3 + 3] = bytes(to_device(zone_color(usage)))
+        data[pos * 3:pos * 3 + 3] = bytes(to_device(zone_color(usage),
+                                                    LED_LEVEL.get(zone_name(usage), 1.0)))
     return bytes(data)
 
 
@@ -207,8 +230,9 @@ LEGEND = [
 def write_pngs(directory):
     """userpic-tokyonight.png (15x6, ровно данные) + keyboard-tokyonight.png (превью).
 
-    В userpic-файл идут БАЙТЫ ДЛЯ ПРОШИВКИ (с компенсацией каналов), а превью
-    рисуется задуманными цветами — так, как это должно выглядеть на клавиатуре.
+    В userpic-файл идут БАЙТЫ ДЛЯ ПРОШИВКИ (сочные цвета + компенсация каналов),
+    а превью рисуется пастельной палитрой TokyoNight (PREVIEW) — это картинка
+    «как задумано», а не точная копия байтов.
     """
     os.makedirs(directory, exist_ok=True)
     data = build_userpic()
@@ -248,7 +272,7 @@ def write_pngs(directory):
         for usage, label, w in row:
             x0 = pad + x * u
             y0 = top + row_i * u
-            color = zone_color(usage or 0xE2)
+            color = preview_color(usage or 0xE2)
             draw.rounded_rectangle([x0 + gap, y0 + gap,
                                     x0 + w * u - gap, y0 + u - gap],
                                    radius=6, fill=color)
@@ -264,7 +288,7 @@ def write_pngs(directory):
         cx = pad + (i % 3) * lw
         cy = ly + (i // 3) * legend_row_h
         draw.rounded_rectangle([cx, cy, cx + 16, cy + 16], radius=4,
-                               fill=zone_color(usages[0]))
+                               fill=preview_color(usages[0]))
         draw.text((cx + 22, cy + 1), text, fill=(0xC0, 0xCA, 0xF5), font=font)
     canvas.save(os.path.join(directory, "keyboard-tokyonight.png"))
     return directory
