@@ -114,7 +114,7 @@ TOKYO = {
     "orange":  (0xFF, 0x4C, 0x00),   # красно-оранжевый, чуть светлее выбранного — 1..0, - =, Space, стрелки
     "sky":     (0x4F, 0xC3, 0xFF),   # голубой    — PrtSc
     "red":     (0xFF, 0x00, 0x00),   # красный    — Enter, Backspace, Del, Esc, Win
-    "purple":  (0xCC, 0x33, 0xFF),   # фиолетовый — Tab, Home/End, Shift/Ctrl/Alt/Fn
+    "purple":  (0xCC, 0x33, 0xE8),   # фиолетовый, чуть краснее — Tab, Home/End, Shift/Ctrl/Alt/Fn
 }
 
 # Яркость зоны на железе (1.0 = как есть). Оранжевый выбран на глаз из

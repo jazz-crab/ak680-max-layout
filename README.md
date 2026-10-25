@@ -172,7 +172,7 @@ sudo iot_driver reset-key "L1+T"
 | Esc (на месте CapsLock) | Esc | красный `#ff0000` |
 | Win | ⊞ | красный `#ff0000` |
 | PrintScreen | PrtSc | голубой `#4fc3ff` |
-| Home, End, модификаторы | Home/End, Tab, Shift, Ctrl, Alt, Fn | фиолетовый `#cc33ff` |
+| Home, End, модификаторы | Home/End, Tab, Shift, Ctrl, Alt, Fn | фиолетовый `#cc33e8` |
 
 Это **сочные** варианты зон, а не hex-коды TokyoNight: пастельные `#ff9e64`,
 `#e0af68`, `#f7768e`, `#bb9af7` на подсветке выглядели белёсыми (у тёплых в составе
